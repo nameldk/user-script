@@ -1,7 +1,7 @@
     // ==UserScript==
     // @name         复制为Markdown格式
     // @namespace    https://github.com/nameldk/user-script
-    // @version      0.2
+    // @version      0.2.1
     // @description  复制网页内容为Markdown格式。点击右上角copy按钮开始选择内容，点击鼠标或按Enter进行复制，按Esc取消选择。按钮可以拖动。
     // @author       nameldk
     // @require      https://unpkg.com/turndown/dist/turndown.js
@@ -183,7 +183,7 @@
                     isDrag = 1;
                 }
                 if (isDrag) {
-                    this.style.top = (e.pageY - topDiff - document.documentElement.scrollTop) + "px";
+                    this.style.top = (e.pageY - topDiff) + "px";
                     this.style.left = (e.pageX - leftDiff) + "px";
                     this.style.right = "auto";
                 }
