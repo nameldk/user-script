@@ -1,11 +1,10 @@
     // ==UserScript==
     // @name         复制为Markdown格式
     // @namespace    https://github.com/nameldk/user-script
-    // @version      0.1
+    // @version      0.2
     // @description  复制网页内容为Markdown格式。点击右上角copy按钮开始选择内容，点击鼠标或按Enter进行复制，按Esc取消选择。按钮可以拖动。
     // @author       nameldk
     // @require      https://unpkg.com/turndown/dist/turndown.js
-    // @require      https://unpkg.com/jquery@3.3.1/dist/jquery.min.js
     // @match        https://*/*
     // @match        http://*/*
     // @grant        none
@@ -15,41 +14,43 @@
         'use strict';
 
         const CLASS_HINT = "_myhint_";
-        let $body = $("body");
         let $curElement = null;
-        let $btn = $('<div style="position: fixed;width: 50px;padding-top: 2px;height: 24px;top: 10%;right: 1%;background: #0084ff;color: #fff;text-align: center;border-radius: 5px;z-index: 10000;cursor: pointer;opacity: 0.1;">copy</div>');
+        let $btn = document.createElement("div");
         let turndownService = new TurndownService();
         let isHold = 0,
             isDrag = 0;
 
         function addStyle(css) {
-            $body.append('<style type="text/css">' + css + '</style>');
+            let s = document.createElement("style");
+            s.type = "text/css";
+            s.textContent = css;
+            document.body.prepend(s);
         }
 
         function showHint($this) {
-            $this.addClass(CLASS_HINT);
+            $this.classList.add(CLASS_HINT);
         }
 
         function hideHint($this) {
-            $this.removeClass(CLASS_HINT);
+            $this.classList.remove(CLASS_HINT);
         }
 
         function handleMouseover(e) {
-            let $target = $(e.target);
+            let $target = e.target;
             $curElement = $target;
             showHint($target);
         }
 
         function handleMouseout(e) {
-            let $target = $(e.target);
+            let $target = e.target;
             hideHint($target);
         }
 
         function handleKeyup(e) {
-            if (e.which === 13) {
+            if (e.keyCode === 13) {
                 process(e);
                 return false;
-            } else if (e.which === 27) {
+            } else if (e.keyCode === 27) {
                 disable();
             }
         }
@@ -60,7 +61,7 @@
         }
 
         function process(e) {
-            if ($curElement && $curElement.length) {
+            if ($curElement) {
                 e.preventDefault();
                 copyIt($curElement);
                 disable();
@@ -69,16 +70,31 @@
         }
 
         function showTips() {
-            let $t = $('<div style="position: fixed;width: 80px;padding-top: 2px;height: 24px;top: 10px;right: 50%;background: #68af02;color: #fff;text-align: center;border-radius: 5px;margin-left: 300px;z-index: 10000;">复制成功</div>');
-            $body.prepend($t);
+            let t = document.createElement("div");
+            t.style.position = "fixed";
+            t.style.width = "80px";
+            t.style.height = "24px";
+            t.style.lineHeight = "24px";
+            t.style.top = "10px";
+            t.style.right = "50%";
+            t.style.background = "#68af02";
+            t.style.fontSize = "14px";
+            t.style.color = "#fff";
+            t.style.textAlign = "center";
+            t.style.borderRadius = "5px";
+            t.style.marginLeft = "300px";
+            t.style.zIndex = 10000;
+            t.innerHTML = "复制成功";
+
+            document.body.prepend(t);
             setTimeout(function () {
-                $t.remove();
+                document.body.removeChild(t);
             }, 1000);
         }
 
         function copyIt($curElement) {
-            if ($curElement && $curElement.length) {
-                let html = $curElement.html();
+            if ($curElement) {
+                let html = $curElement.innerHTML;
                 html = html.replace(/(<img.+?src=")\/(.+?)"/gi, "$1" + document.location.origin + "/$2\"");
                 let markdown = turndownService.turndown(html);
                 markdown = markdown.replace(/<img.+?>/g, "");
@@ -100,58 +116,80 @@
         }
 
         function enable() {
-            $(document).on("mouseover", handleMouseover)
-                .on("mouseout", handleMouseout)
-                .on("click", handleClick)
-                .on("keyup", handleKeyup);
+            document.addEventListener("mouseover", handleMouseover);
+            document.addEventListener("mouseout", handleMouseout);
+            document.addEventListener("click", handleClick);
+            document.addEventListener("keyup", handleKeyup);
         }
 
         function disable() {
-            if ($curElement && $curElement.length) {
+            if ($curElement) {
                 hideHint($curElement);
                 $curElement = null;
             }
 
-            $(document).off("mouseover", handleMouseover)
-                .off("mouseout", handleMouseout)
-                .off("click", handleClick)
-                .off("keyup", handleKeyup);
+            document.removeEventListener("mouseover", handleMouseover);
+            document.removeEventListener("mouseout", handleMouseout);
+            document.removeEventListener("click", handleClick);
+            document.removeEventListener("keyup", handleKeyup);
 
-            $btn.show();
+            $btn.style.display = "block";
         }
 
         function initBtn() {
             let topDiff = 0,
                 leftDiff = 0;
-            $btn.on("click", function () {
+
+            $btn.style.position = "fixed";
+            $btn.style.width = "44px";
+            $btn.style.height = "22px";
+            $btn.style.lineHeight = "22px";
+            $btn.style.top = "14%";
+            $btn.style.right = "1%";
+            $btn.style.background = "#0084ff";
+            $btn.style.fontSize = "14px";
+            $btn.style.color = "#fff";
+            $btn.style.textAlign = "center";
+            $btn.style.borderRadius = "6px";
+            $btn.style.zIndex = 10000;
+            $btn.style.cursor = "pointer";
+            $btn.style.opacity = 0.1;
+            $btn.innerHTML = "copy";
+
+            $btn.addEventListener("click", function () {
                 if (isDrag) {
                     return false;
                 }
                 enable();
-                $(this).hide();
-            }).on("mouseover", function () {
-                $(this).css("opacity", 1);
-            }).on("mouseout", function () {
-                $(this).css("opacity", 0.1);
-            }).on("mousedown", function (e) {
-                isHold = 1;
-                leftDiff = e.pageX - $btn.offset().left;
-                topDiff = e.pageY - $btn.offset().top;
-            }).on("mouseup", function () {
+                this.style.display = "none";
+            });
 
-            }).on("mousemove", function (e) {
+            $btn.addEventListener("mouseover", function (e) {
+                this.style.opacity = 1;
+            });
+
+            $btn.addEventListener("mouseout", function () {
+                this.style.opacity = 0.1;
+            });
+
+            $btn.addEventListener("mousedown", function (e) {
+                isHold = 1;
+                leftDiff = e.pageX - this.offsetLeft;
+                topDiff = e.pageY - this.offsetTop;
+            });
+
+            $btn.addEventListener("mousemove", function (e) {
                 if (isHold) {
                     isDrag = 1;
                 }
                 if (isDrag) {
-                    $btn.css({
-                        "top": e.pageY - topDiff - document.documentElement.scrollTop,
-                        "left": e.pageX - leftDiff,
-                        "right": "auto"
-                    });
+                    this.style.top = (e.pageY - topDiff - document.documentElement.scrollTop) + "px";
+                    this.style.left = (e.pageX - leftDiff) + "px";
+                    this.style.right = "auto";
                 }
             });
-            $body.on("mouseup", function () {
+
+            document.addEventListener("mouseup", function () {
                 setTimeout(function () {
                     isHold = 0;
                     isDrag = 0;
@@ -160,8 +198,12 @@
         }
 
         function init() {
+            if (!document.body) {
+                console.warn("no body");
+                return;
+            }
             addStyle("." + CLASS_HINT + "{border:1px solid blue}");
-            $body.prepend($btn);
+            document.body.prepend($btn);
             initBtn();
         }
 
