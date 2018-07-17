@@ -1,7 +1,7 @@
     // ==UserScript==
     // @name         复制为Markdown格式
     // @namespace    https://github.com/nameldk/user-script
-    // @version      0.2.1
+    // @version      0.2.2
     // @description  复制网页内容为Markdown格式。点击右上角copy按钮开始选择内容，点击鼠标或按Enter进行复制，按Esc取消选择。按钮可以拖动。
     // @author       nameldk
     // @require      https://unpkg.com/turndown/dist/turndown.js
@@ -176,23 +176,24 @@
                 isHold = 1;
                 leftDiff = e.pageX - this.offsetLeft;
                 topDiff = e.pageY - this.offsetTop;
-            });
 
-            $btn.addEventListener("mousemove", function (e) {
-                if (isHold) {
-                    isDrag = 1;
-                }
-                if (isDrag) {
-                    this.style.top = (e.pageY - topDiff) + "px";
-                    this.style.left = (e.pageX - leftDiff) + "px";
-                    this.style.right = "auto";
-                }
+                $btn.onmousemove = function (e) {
+                    if (isHold) {
+                        isDrag = 1;
+                    }
+                    if (isDrag) {
+                        this.style.top = (e.pageY - topDiff) + "px";
+                        this.style.left = (e.pageX - leftDiff) + "px";
+                        this.style.right = "auto";
+                    }
+                };
             });
 
             document.addEventListener("mouseup", function () {
                 setTimeout(function () {
                     isHold = 0;
                     isDrag = 0;
+                    $btn.onmousemove = null;
                 }, 0);
             });
         }
