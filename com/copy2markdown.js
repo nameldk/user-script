@@ -1,7 +1,7 @@
     // ==UserScript==
     // @name         复制为Markdown格式
     // @namespace    https://github.com/nameldk/user-script
-    // @version      0.2.4
+    // @version      0.2.5
     // @description  复制网页内容为Markdown格式。点击右上角copy按钮开始选择内容，点击鼠标或按Enter进行复制，按Esc取消选择。按钮可以拖动。
     // @author       nameldk
     // @require      https://unpkg.com/turndown/dist/turndown.js
@@ -98,6 +98,8 @@
                 let html = $curElement.innerHTML;
                 html = html.replace(/(<img.+\s?src=")(\/\/.+?")/gi, "$1" + document.location.protocol + "$2")
                            .replace(/(<img.+\s?src=")(\/.+?")/gi, "$1" + document.location.origin + "$2")
+                           .replace(/(<img.+\s?src=")(?!http)(.+?")/gi, "$1" + document.location.origin + 
+                                (document.location.pathname.substring(0, document.location.pathname.lastIndexOf('/'))) + "/$2")
                            .replace(/(<a.+\s?href=")([\/#].*?")(.*?<\/a>)/gi, function(match, p1, p2, p3){
                                return p1 + (p2[0] === '/' ? document.location.origin : location.href.replace(/#.*/,"")) + p2 + p3;
                            });
