@@ -1,8 +1,8 @@
     // ==UserScript==
     // @name         复制为Markdown格式
     // @namespace    https://github.com/nameldk/user-script
-    // @version      0.2.7
-    // @description  复制网页内容为Markdown格式。点击右上角copy按钮开始选择内容，点击鼠标或按Enter进行复制，按Esc取消选择。按钮可以拖动。
+    // @version      0.3.0
+    // @description  复制网页内容为Markdown格式。点击右上角copy按钮开始选择内容，点击鼠标或按Enter进行复制。按Esc取消选择，上箭头选择父级，下箭头选择子级，左箭头选择前面的相邻元素，右箭头选择后面的相邻元素。按钮可以拖动。
     // @author       nameldk
     // @require      https://unpkg.com/turndown/dist/turndown.js
     // @match        https://*/*
@@ -29,14 +29,19 @@
         }
 
         function showHint($this) {
-            $this.classList.add(CLASS_HINT);
+            if ($this) {
+                $this.classList.add(CLASS_HINT);
+            }
         }
 
         function hideHint($this) {
-            $this.classList.remove(CLASS_HINT);
+            if ($this) {
+                $this.classList.remove(CLASS_HINT);
+            }
         }
 
         function handleMouseover(e) {
+            hideHint($curElement);
             let $target = e.target;
             $curElement = $target;
             showHint($target);
@@ -48,11 +53,65 @@
         }
 
         function handleKeyup(e) {
-            if (e.keyCode === 13) {
+            function isValidNode(node) {
+                return node && node.textContent && node.textContent.trim() !== "";
+            }
+            function findNextNode(node) {
+                if (node) {
+                    var findNode = node.nextElementSibling;
+                    while(findNode) {
+                        if (isValidNode(findNode)) {
+                            return findNode;
+                        } else {
+                            if (findNode.nextElementSibling) {
+                                findNode = findNode.nextElementSibling;
+                            }
+                        }
+                    }
+                }
+                return null;
+            }
+
+            if (e.keyCode === 13) { // enter
                 process(e);
                 return false;
-            } else if (e.keyCode === 27) {
+            } else if (e.keyCode === 27) { // esc
                 disable();
+            } else if (e.keyCode === 38) { // arrow up
+                if ($curElement && isValidNode($curElement.parentElement)) {
+                    hideHint($curElement);
+                    $curElement = $curElement.parentElement;
+                    console.log($curElement)
+                    showHint($curElement);
+                }
+            } else if (e.keyCode === 37) { // arrow left
+                if ($curElement && isValidNode($curElement.previousElementSibling)) {
+                    hideHint($curElement);
+                    $curElement = $curElement.previousElementSibling;
+                    console.log($curElement)
+                    showHint($curElement);
+                }
+            } else if (e.keyCode === 40) { // arrow down
+                let nextNode = null;
+                if ($curElement && (nextNode = findNextNode($curElement.firstElementChild))) {
+                    hideHint($curElement);
+                    $curElement = nextNode;
+                    console.log($curElement)
+                    showHint($curElement);
+                }
+            } else if (e.keyCode === 39) { // arrow right
+                if ($curElement && isValidNode($curElement.nextElementSibling)) {
+                    hideHint($curElement);
+                    $curElement = $curElement.nextElementSibling;
+                    console.log($curElement)
+                    showHint($curElement);
+                }
+            }
+        }
+
+        function disableScroll(e) {
+            if ([38, 40, 37, 39].indexOf(e.keyCode) > -1) {
+                e.preventDefault();
             }
         }
 
@@ -154,6 +213,7 @@
             document.addEventListener("mouseout", handleMouseout);
             document.addEventListener("click", handleClick);
             document.addEventListener("keyup", handleKeyup);
+            window.addEventListener("keydown", disableScroll, false);
         }
 
         function disable() {
@@ -166,6 +226,7 @@
             document.removeEventListener("mouseout", handleMouseout);
             document.removeEventListener("click", handleClick);
             document.removeEventListener("keyup", handleKeyup);
+            window.removeEventListener("keydown", disableScroll, false);
 
             $btn.style.display = "block";
         }
@@ -237,7 +298,7 @@
                 console.warn("no body");
                 return;
             }
-            addStyle("." + CLASS_HINT + "{border:1px solid blue}");
+            addStyle("." + CLASS_HINT + "{background-color: #fafafa; outline: 2px dashed #1976d2; opacity: .8; cursor: pointer; -webkit-transition: opacity .5s ease; transition: opacity .5s ease;}");
             document.body.prepend($btn);
             initBtn();
         }
