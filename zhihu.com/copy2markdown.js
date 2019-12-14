@@ -14,6 +14,30 @@
 (function () {
     'use strict';
     let turndownService = new TurndownService();
+    turndownService.addRule('formula', { //添加规则：处理公式
+        filter: function (node, options) {
+            return (
+                options.linkStyle === 'inlined' &&
+                node.nodeName === 'IMG' &&
+                node.outerHTML.search("data-formula") != -1
+            )
+        },
+        replacement: function (content, node) {
+            return '$' + node.outerHTML.replace(/^.*?data-formula="(.*?) *?".*?$/,"$1") + '$'
+        }
+    })
+    turndownService.addRule('figure', { //添加规则：处理带描述的图片
+        filter: 'figure',
+        replacement: function (content, node) {
+            var description = "";
+            if(node.innerHTML.search("<figcaption>") != -1){
+                description = node.innerHTML.replace(/^.*?<figcaption>(.*?)<\/figcaption>.*?$/,"$1")
+            }
+            return '![]('
+                + node.innerHTML.replace(/^.*?src="(.*?)".*?$/,"$1") + ')  \n'
+                + description
+        }
+    })
     let isAnswerPage = window.location.href.match(/www.zhihu.com\/question\/\d+\/answer\/\d+/);
 
     function bind() {
