@@ -6,6 +6,7 @@
 // @icon         https://pic1.zhimg.com/2e33f063f1bd9221df967219167b5de0_m.jpg
 // @author       nameldk
 // @match        https://www.zhihu.com/question/*
+// @match        https://zhuanlan.zhihu.com/p/*
 // @require      https://unpkg.com/turndown/dist/turndown.js
 // @require      https://unpkg.com/jquery@3.3.1/dist/jquery.min.js
 // @grant        none
@@ -14,8 +15,9 @@
 (function () {
     'use strict';
     let turndownService = new TurndownService();
-    turndownService.addRule('formula', { //添加规则：处理公式
+    turndownService.addRule('formula', {
         filter: function (node, options) {
+            // console.log(node)
             return (
                 options.linkStyle === 'inlined' &&
                 node.nodeName === 'IMG' &&
@@ -26,7 +28,7 @@
             return '$' + node.outerHTML.replace(/^.*?data-formula="(.*?) *?".*?$/,"$1") + '$'
         }
     })
-    turndownService.addRule('figure', { //添加规则：处理带描述的图片
+    turndownService.addRule('figure', {
         filter: 'figure',
         replacement: function (content, node) {
             var description = "";
@@ -39,9 +41,10 @@
         }
     })
     let isAnswerPage = window.location.href.match(/www.zhihu.com\/question\/\d+\/answer\/\d+/);
+    let isZhuanlan = window.location.href.match(/zhuanlan.zhihu.com\/p\/\d+/);
 
     function bind() {
-        $('.List-item, .AnswerCard').each(function () {
+        $('.List-item, .AnswerCard, .Post-content').each(function () {
             let $thisItem = $(this);
             let $btn = $('<button type="button" class="btn-html2md Button Button--blue" style=" position: absolute; right: 20px; top: 10px;">copy2md</button>');
             let $author = $thisItem.find(".AuthorInfo");
@@ -51,11 +54,20 @@
                     "float": "right"
                 });
             }
+            if (isZhuanlan) {
+                $btn[0].style.top = "60px";
+            }
             $thisItem.prepend($btn);
             $btn.on("click", function () {
                 let $rich = $thisItem.find(".RichContent-inner");
+                if(!$rich.length) {$rich = $thisItem.find(".Post-RichTextContainer");}
                 if ($rich.length) {
-                    let markdown = turndownService.turndown($rich.get(0));
+                    let markdown = "";
+                    let title = $(".Post-Title");
+                    if(title.length){
+                        markdown += "# " + title[0].innerText + "\n\n";
+                    }
+                    markdown += turndownService.turndown($rich.get(0));
                     markdown = markdown.replace(/<img.+?>/g, "");
                     markdown += "\n> 作者：" + $author.children('meta[itemprop="name"]').attr("content") || '';
                     markdown += '\n> 链接：' + $thisItem.find('meta[itemprop="url"][content*="/answer/"]').attr('content') || '';
@@ -65,9 +77,12 @@
                         if (isAnswerPage) {
                             $t.css({
                                 "margin-top": "10px",
-                                "right": "auto",
-                                "margin-top": "10px"
+                                "right": "auto"
                             });
+                        }
+                        if (isZhuanlan) {
+                            $t[0].style.right = "20px";
+                            $t[0].style.top = "100px";
                         }
                         $thisItem.prepend($t);
                         setTimeout(function () {
