@@ -1,36 +1,33 @@
-
 // ==UserScript==
 // @name        知乎手机网页版改进
 // @namespace   https://www.zhihu.com/
 // @match       https://www.zhihu.com/question/*
 // @grant       none
-// @version     1.0
+// @version     1.1
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
 // ==/UserScript==
 
-
-var questionNumber = (location.href.match(/\/question\/(\d+)/)||[])[1];
-var inDetailPage = location.href.match(/\/question\/\d+\/answer\/\d+/);
-var fromMobile = navigator.userAgent.match(/Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i);
+const questionNumber = (location.href.match(/\/question\/(\d+)/)||[])[1];
+const inDetailPage = location.href.match(/\/question\/\d+\/answer\/\d+/);
+const fromMobile = navigator.userAgent.match(/Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i);
 
 var offset = 0;
 var limit = 5;
 var is_end = 0;
 var elList = null;
 var elLoading = null;
-var loadInterval = null;
+var loadAnswerInterval = null;
+var loadCommentInterval = null;
 var viewportElCheckList = [];
 
 function removeIt(s) {
-    // 删除
     Array.prototype.forEach.call(document.querySelectorAll(s), function (ele) {
         ele.remove();
     });
 }
 
 function skipOpenApp() {
-    // 跳过App内打开
     // .ContentItem.AnswerItem
     // .RichContent.is-collapsed.RichContent--unescapable
     Array.prototype.forEach.call(document.querySelectorAll('.ContentItem.AnswerItem'), function (ele) {
@@ -56,13 +53,13 @@ function skipOpenApp() {
             }
         });
 
+        bindClickComment(ele.parentElement);
     });
 
     document.body.style.overflow = "auto";
 }
 
 function removeAds() {
-    // 移除广告
     Array.prototype.forEach.call(document.querySelectorAll('.MBannerAd'), function (ele) {
         ele.parentNode.removeChild(ele)
     });
@@ -93,7 +90,6 @@ function processContent(content) {
 
 function loadContent(offset, limit) {
     var url = `https://www.zhihu.com/api/v4/questions/${questionNumber}/answers?include=data%5B%2A%5D.is_normal%2Cadmin_closed_comment%2Creward_info%2Cis_collapsed%2Cannotation_action%2Cannotation_detail%2Ccollapse_reason%2Cis_sticky%2Ccollapsed_by%2Csuggest_edit%2Ccomment_count%2Ccan_comment%2Ccontent%2Ceditable_content%2Cvoteup_count%2Creshipment_settings%2Ccomment_permission%2Ccreated_time%2Cupdated_time%2Creview_info%2Crelevant_info%2Cquestion%2Cexcerpt%2Crelationship.is_authorized%2Cis_author%2Cvoting%2Cis_thanked%2Cis_nothelp%2Cis_labeled%2Cis_recognized%2Cpaid_info%2Cpaid_info_content%3Bdata%5B%2A%5D.mark_infos%5B%2A%5D.url%3Bdata%5B%2A%5D.author.follower_count%2Cbadge%5B%2A%5D.topics&limit=${limit}&offset=${offset}&platform=desktop&sort_by=default`;
-    // return $.get(url);
     return fetch(url).then(response => response.json());
 }
 
@@ -219,6 +215,7 @@ function loadAnswer() {
             elListItemWrap.innerHTML = buildHtml(item);
             getListWrap().insertAdjacentElement("beforeend", elListItemWrap);
             processFold(elListItemWrap);
+            bindClickComment(elListItemWrap);
         });
     })
 }
@@ -280,14 +277,14 @@ function bindLoadData() {
 </div></div></div>`);
 
     elLoading = document.getElementById('my-loading');
-    window.onscroll = function(ev) {
+    window.onscroll = function() {
         if ((window.innerHeight + window.scrollY + 50) >= document.body.offsetHeight) {
             console.log('reach bottom');
-            if (loadInterval) {
-                clearTimeout(loadInterval);
+            if (loadAnswerInterval) {
+                clearTimeout(loadAnswerInterval);
             }
 
-            loadInterval = setTimeout(function(){
+            loadAnswerInterval = setTimeout(function(){
                 console.log('to load', offset, limit);
                 loadAnswer();
             }, 100);
@@ -317,6 +314,268 @@ function bindProcessViewport() {
     }, false);
 }
 
+function loadCommentData(answerId, offset, isReverse) {
+    if (!answerId) {
+        return;
+    }
+    let url = `https://www.zhihu.com/api/v4/answers/${answerId}/root_comments?limit=10&offset=${offset}&order=normal&status=open`;
+    if (isReverse)
+        url = `https://www.zhihu.com/api/v4/answers/${answerId}/comments?limit=10&offset=${offset}&order=reverse&status=open`;
+    return fetch(url).then(response => response.json());
+}
+
+function bindClickComment(elListItem) {
+    if (!elListItem)
+        return;
+    let elButton = elListItem.querySelector('button.ContentItem-action.Button--withLabel');
+    let elComment = elListItem.querySelector('.Comments-container');
+    elButton.addEventListener('click', function () {
+        if (elComment) {
+            elComment.classList.toggle('hide');
+        } else {
+            let answerId = (elListItem.querySelector('.ContentItem-meta ~ meta[itemprop="url"]').getAttribute('content').match(/\/answer\/(\d+)/) || [])[1];
+            elComment = addCommentWrap(elListItem, answerId);
+            
+            let elCommentWrap = elComment.querySelector('.CommentListV2');
+            let elSwitchBtn = elComment.querySelector('div.Topbar-options > button');
+            let elCommentFold = elComment.querySelector('a.comment-fold');
+
+            elComment.dataset.answerId = answerId;
+            elComment.dataset.offset = 0;
+
+            processComment(elComment, elCommentWrap);
+
+            elCommentWrap.addEventListener('scroll', function(){
+                if (elCommentWrap.scrollTop + elCommentWrap.offsetHeight + 20 > elCommentWrap.scrollHeight) {
+                    processComment(elComment, elCommentWrap);
+                }
+            }, false);
+
+            elSwitchBtn.addEventListener('click', function(){
+                if (elSwitchBtn.innerText === '切换为时间排序') {
+                    elSwitchBtn.innerText = '切换为默认排序';
+                    elComment.dataset.isReverse = 0;
+                } else {
+                    elSwitchBtn.innerText = '切换为时间排序';
+                    elComment.dataset.isReverse = 1;
+                }
+                elComment.dataset.offset = 0;
+                elCommentWrap.innerHTML = '';
+                processComment(elComment, elCommentWrap);
+            });
+
+            elCommentFold.addEventListener('click', function(){
+                elComment.classList.add('hide');
+            });
+            
+        }
+    });
+}
+
+function addCommentWrap(elListItem, answerId) {
+    if (!elListItem)
+        return;
+    var commentCount = elListItem.querySelector('meta[itemprop="commentCount"]').getAttribute('content');
+    let html = `<div class="Comments-container" id="comment-block-${answerId}">
+    <div class="CommentsV2 CommentsV2--withEditor">
+        <div class="Topbar CommentTopbar">
+            <div class="Topbar-title"><h2 class="CommentTopbar-title">${commentCount} 条评论</h2></div>
+            <div class="Topbar-options">
+                <button type="button" class="Button Button--plain Button--withIcon Button--withLabel">
+                    <span style="display: inline-flex; align-items: center;">&#8203;
+                        <svg class="Zi Zi--Switch Button-zi" fill="currentColor" viewBox="0 0 24 24" width="1.2em" height="1.2em">
+                            <path d="M13.004 7V4.232c0-.405.35-.733.781-.733.183 0 .36.06.501.17l6.437 5.033c.331.26.376.722.1 1.033a.803.803 0 0 1-.601.264H2.75a.75.75 0 0 1-.75-.75V7.75A.75.75 0 0 1 2.75 7h10.254zm-1.997 9.999v2.768c0 .405-.35.733-.782.733a.814.814 0 0 1-.5-.17l-6.437-5.034a.702.702 0 0 1-.1-1.032.803.803 0 0 1 .6-.264H21.25a.75.75 0 0 1 .75.75v1.499a.75.75 0 0 1-.75.75H11.007z" fill-rule="evenodd"></path></svg>
+                    </span>切换为时间排序
+                </button>
+            </div>
+        </div>
+        <a class="comment-fold">收起</a>
+        <div class="CommentListV2">
+        </div>
+    </div>
+</div>`;
+    elListItem.insertAdjacentHTML("beforeend", html);
+    return elListItem.querySelector('.Comments-container');
+}
+
+function genCommentHtml(dataList) {
+    if (!dataList || !dataList.length)
+        return '';
+    let html = '';
+    dataList.forEach(function(data) {
+        html += genCommentItem(data, data.child_comment_count, 0);
+        if (data.child_comment_count) {
+            data.child_comments.forEach(function (v) {
+                html += genCommentItem(v, 0, 1);
+            })
+        }
+    });
+    if (html) {
+        return `<ul class="NestComment">${html}</ul>`;
+    }
+    return html;
+}
+
+function formatUrl(url, formatStr) {
+    if (!formatStr)
+        formatStr = 'xs';
+    // s,xs,m, r
+    return url.replace('{size}', formatStr);
+}
+
+function dateFormat(e, t) {
+    if(e.toString().length === 10) { // 秒
+        e = e*1000;
+    }
+    e = new Date(e);
+    // yyyy-MM-dd hh:mm:ss
+    var n = {
+        "M+": e.getMonth() + 1,
+        "d+": e.getDate(),
+        "h+": e.getHours(),
+        "m+": e.getMinutes(),
+        "s+": e.getSeconds(),
+        "q+": Math.floor((e.getMonth() + 3) / 3),
+        S: e.getMilliseconds()
+    };
+    /(y+)/.test(t) && (t = t.replace(RegExp.$1, (e.getFullYear() + "").substr(4 - RegExp.$1.length)));
+    for (var r in n)
+        new RegExp("(" + r + ")").test(t) && (t = t.replace(RegExp.$1, 1 === RegExp.$1.length ? n[r] : ("00" + n[r]).substr(("" + n[r]).length)));
+    return t
+}
+
+function getDate(timestamp) {
+    return dateFormat(timestamp, 'yyyy-MM-dd');
+}
+
+
+function genCommentItem(item, hasChild, isChild) {
+    const liClass = !hasChild ? 'rootCommentNoChild' : (isChild ? 'child' : 'rootComment');
+
+    var replyHtml = '';
+    if (item.reply_to_author) {
+        replyHtml = `<span class="CommentItemV2-roleInfo"> (作者) </span>
+<span class="CommentItemV2-reply">回复</span>
+<span class="UserLink">
+    <a class="UserLink-link" data-za-detail-view-element_name="User" target="_blank"
+    href="//www.zhihu.com/people/${item.reply_to_author.member.url_token}">${item.reply_to_author.member.name}</a>
+</span>`;
+    }
+
+    var html = `<li class="NestComment--${liClass}">
+        <div class="CommentItemV2">
+            <div>
+                <div class="CommentItemV2-meta">
+                    <span class="UserLink CommentItemV2-avatar">
+                        <a class="UserLink-link" data-za-detail-view-element_name="User" target="_blank"
+                           href="//www.zhihu.com/people/${item.author.member.url_token}">
+                            <img class="Avatar UserLink-avatar"
+                                 width="24" height="24"
+                                 src="${formatUrl(item.author.member.avatar_url_template, 's')}"
+                                 srcset="${formatUrl(item.author.member.avatar_url_template, 'xs')} 2x"
+                                 alt="${item.author.member.name}">
+                        </a>
+                    </span>
+                    <span class="UserLink">
+                        <a class="UserLink-link" data-za-detail-view-element_name="User"
+                           target="_blank" href="//www.zhihu.com/people/${item.author.member.url_token}">${item.author.member.name}
+                        </a>
+                    </span>${replyHtml}
+                    <span class="CommentItemV2-time">${getDate(item.created_time)}</span>
+                </div>
+                <div class="CommentItemV2-metaSibling">
+                    <div class="CommentRichText CommentItemV2-content">
+                        <div class="RichText ztext">${item.content}</div>
+                    </div>
+                    <div class="CommentItemV2-footer">
+                        <button type="button" class="Button CommentItemV2-likeBtn Button--plain"><span
+                                style="display: inline-flex; align-items: center;">&#8203;<svg
+                                class="Zi Zi--Like" fill="currentColor" viewBox="0 0 24 24" width="16"
+                                height="16" style="margin-right: 5px;"><path
+                                d="M14.445 9h5.387s2.997.154 1.95 3.669c-.168.51-2.346 6.911-2.346 6.911s-.763 1.416-2.86 1.416H8.989c-1.498 0-2.005-.896-1.989-2v-7.998c0-.987.336-2.032 1.114-2.639 4.45-3.773 3.436-4.597 4.45-5.83.985-1.13 3.2-.5 3.037 2.362C15.201 7.397 14.445 9 14.445 9zM3 9h2a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V10a1 1 0 0 1 1-1z"
+                                fill-rule="evenodd"></path></svg></span>${item.vote_count}
+                        </button>
+                        <!--<button type="button" class="Button CommentItemV2-hoverBtn Button--plain"><span
+                                style="display: inline-flex; align-items: center;">&#8203;<svg
+                                class="Zi Zi--Reply" fill="currentColor" viewBox="0 0 24 24" width="16"
+                                height="16" style="margin-right: 5px;"><path
+                                d="M22.959 17.22c-1.686-3.552-5.128-8.062-11.636-8.65-.539-.053-1.376-.436-1.376-1.561V4.678c0-.521-.635-.915-1.116-.521L1.469 10.67a1.506 1.506 0 0 0-.1 2.08s6.99 6.818 7.443 7.114c.453.295 1.136.124 1.135-.501V17a1.525 1.525 0 0 1 1.532-1.466c1.186-.139 7.597-.077 10.33 2.396 0 0 .396.257.536.257.892 0 .614-.967.614-.967z"
+                                fill-rule="evenodd"></path></svg></span>回复
+                        </button>
+                        <button type="button" class="Button CommentItemV2-hoverBtn Button--plain"><span
+                                style="display: inline-flex; align-items: center;">&#8203;<svg
+                                class="Zi Zi--Like" fill="currentColor" viewBox="0 0 24 24" width="16"
+                                height="16" style="transform: rotate(180deg); margin-right: 5px;"><path
+                                d="M14.445 9h5.387s2.997.154 1.95 3.669c-.168.51-2.346 6.911-2.346 6.911s-.763 1.416-2.86 1.416H8.989c-1.498 0-2.005-.896-1.989-2v-7.998c0-.987.336-2.032 1.114-2.639 4.45-3.773 3.436-4.597 4.45-5.83.985-1.13 3.2-.5 3.037 2.362C15.201 7.397 14.445 9 14.445 9zM3 9h2a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V10a1 1 0 0 1 1-1z"
+                                fill-rule="evenodd"></path></svg></span>踩
+                        </button>
+                        <button type="button" class="Button CommentItemV2-hoverBtn Button--plain"><span
+                                style="display: inline-flex; align-items: center;">&#8203;<svg
+                                class="Zi Zi--Report" fill="currentColor" viewBox="0 0 24 24" width="16"
+                                height="16" style="margin-right: 5px;"><path
+                                d="M19.947 3.129c-.633.136-3.927.639-5.697.385-3.133-.45-4.776-2.54-9.949-.888-.997.413-1.277 1.038-1.277 2.019L3 20.808c0 .3.101.54.304.718a.97.97 0 0 0 .73.304c.275 0 .519-.102.73-.304.202-.179.304-.418.304-.718v-6.58c4.533-1.235 8.047.668 8.562.864 2.343.893 5.542.008 6.774-.657.397-.178.596-.474.596-.887V3.964c0-.599-.42-.972-1.053-.835z"
+                                fill-rule="evenodd"></path></svg></span>举报
+                        </button>-->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </li>`;
+    return html;
+}
+
+function genCommentLoding() {
+    var html = `<div>
+    <div class="PlaceHolder CommentItemV2">
+        <div class="PlaceHolder-inner">
+            <div class="PlaceHolder-bg"></div>
+            <svg width="656" height="44" viewBox="0 0 656 44" class="PlaceHolder-mask">
+                <path d="M0 0h656v44H0V0zm0 0h480v12H0V0zm0 32h238v12H0V32z" fill="currentColor"
+                      fill-rule="evenodd"></path>
+            </svg>
+        </div>
+    </div>
+</div>`;
+    var el = document.createElement('div');
+    el.innerHTML = html;
+    return el;
+}
+
+function processComment(elComment, elCommentWrap) {
+    if (!elComment || !elCommentWrap) {
+        return;
+    }
+    let offset = +elComment.dataset.offset,
+        answerId = elComment.dataset.answerId,
+        isReverse = +elComment.dataset.isReverse,
+        isEnd = +elComment.dataset.isEnd
+    ;
+    if (loadCommentInterval) {
+        clearTimeout(loadCommentInterval);
+    }
+    if (!answerId || isEnd) {
+        return;
+    }
+
+    loadCommentInterval = setTimeout(function() {
+        console.log('beginLoadComment', offset);
+        var elLoading = genCommentLoding();
+        elCommentWrap.appendChild(elLoading);
+        loadCommentData(answerId, offset, isReverse).then(function (json) {
+            console.log('getCommentData', offset);
+            elComment.dataset.offset = offset + 10;
+            elCommentWrap.removeChild(elLoading);
+            elLoading = null;
+            let html = genCommentHtml(json.data);
+            if (json.paging.is_end) {
+                elComment.dataset.isEnd = 1;
+                html += '<div style="text-align: center; padding: 10px;">评论全部已加载完成...</div>'
+            }
+            elCommentWrap.insertAdjacentHTML('beforeend', html);
+        });
+    }, 100);
+}
+
 function addCss() {
     var style = `
 <style type="text/css">
@@ -327,9 +586,8 @@ function addCss() {
         display: block;
     }
     .my-fold .my-less-btn {
-        display:none; 
+        display:none;
     }
-    
     .my-unfold .RichContent-inner {
         max-height: none;
     }
@@ -339,24 +597,33 @@ function addCss() {
     .my-unfold .my-less-btn {
         display: block;
     }
-    
+
     .my-more-btn {
-        float: right; 
-        padding: 0 10px 10px 10px;    
+        float: right;
+        padding: 0 10px 10px 10px;
     }
     .my-less-btn {
-        position: fixed; 
-        top: 50px; 
-        right: 10px; 
+        position: fixed;
+        top: 50px;
+        right: 10px;
         padding: 0 10px 10px 10px;
     }
     #my-loading {
         text-align: center;
         padding-bottom: 10px;
     }
-    
     .hide, .my-less-btn.hide {
         display: none;
+    }
+    .CommentListV2 {
+        max-height: 500px;
+    }
+    a.comment-fold {
+        position: fixed; 
+        right: 10px;
+        bottom: 30%;
+        padding: 10px;
+        z-index: 2;
     }
 </style>
 <style type="text/css">
@@ -383,7 +650,7 @@ function addCss() {
   height: 100%;
   transform: rotate(45deg);
 }
-.ldio-4crll70kj > div:nth-child(2) div:before, .ldio-4crll70kj > div:nth-child(2) div:after { 
+.ldio-4crll70kj > div:nth-child(2) div:before, .ldio-4crll70kj > div:nth-child(2) div:after {
   content: "";
   display: block;
   position: absolute;
@@ -395,7 +662,7 @@ function addCss() {
   border-radius: 50%;
   box-shadow: 0 68px 0 0 #fe718d;
 }
-.ldio-4crll70kj > div:nth-child(2) div:after { 
+.ldio-4crll70kj > div:nth-child(2) div:after {
   left: -8px;
   top: 26px;
   box-shadow: 68px 0 0 0 #fe718d;
