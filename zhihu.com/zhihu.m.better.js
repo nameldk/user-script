@@ -3,9 +3,10 @@
 // @namespace   https://www.zhihu.com/
 // @match       https://www.zhihu.com/question/*
 // @grant       none
-// @version     1.1
+// @version     1.2
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2020.08.02  v1.2 处理gif,视频,收起后的定位,发布时间,页面被清空的问题
 // ==/UserScript==
 
 const questionNumber = (location.href.match(/\/question\/(\d+)/)||[])[1];
@@ -21,29 +22,145 @@ var loadAnswerInterval = null;
 var loadCommentInterval = null;
 var viewportElCheckList = [];
 
-function removeIt(s) {
-    Array.prototype.forEach.call(document.querySelectorAll(s), function (ele) {
-        ele.remove();
-    });
+
+function forEachArray(arrayLike, cb) {
+    if (arrayLike) {
+        Array.prototype.forEach.call(arrayLike, el => cb(el));
+    }
 }
+
+function forEachBySelector(s, cb) {
+    Array.prototype.forEach.call(document.querySelectorAll(s), el => cb(el));
+}
+
+function removeBySelector(s) {
+    forEachBySelector(s, ele => ele.remove());
+}
+
+
+function getElementHeight(el) {
+    if (el) {
+        // el.offsetHeight
+        return parseFloat(window.getComputedStyle(el, null).height.replace("px", ""));
+    }
+    return 0;
+}
+
+function isElementInViewport (el) {
+    // https://stackoverflow.com/questions/123999/how-can-i-tell-if-a-dom-element-is-visible-in-the-current-viewport
+    if (!el)
+        return false;
+
+    var rect = el.getBoundingClientRect();
+    if (rect.top >= 0) { // ↓
+        return rect.top < window.innerHeight;
+    } else {
+        return rect.top + rect.height > 0;
+    }
+}
+
+
+function formatNumber(num) {
+    if (num > 10000) {
+        return (num / 10000).toFixed(2) + '万';
+    } else {
+        return num;
+    }
+}
+
+
+function formatUrl(url, formatStr) {
+    if (!formatStr)
+        formatStr = 'xs';
+    // s,xs,m, r
+    return url.replace('{size}', formatStr);
+}
+
+function formatDate(e, t) {
+    if(e.toString().length === 10) { // 秒
+        e = e*1000;
+    }
+    e = new Date(e);
+    // yyyy-MM-dd hh:mm:ss
+    var n = {
+        "M+": e.getMonth() + 1,
+        "d+": e.getDate(),
+        "h+": e.getHours(),
+        "m+": e.getMinutes(),
+        "s+": e.getSeconds(),
+        "q+": Math.floor((e.getMonth() + 3) / 3),
+        S: e.getMilliseconds()
+    };
+    /(y+)/.test(t) && (t = t.replace(RegExp.$1, (e.getFullYear() + "").substr(4 - RegExp.$1.length)));
+    for (var r in n)
+        new RegExp("(" + r + ")").test(t) && (t = t.replace(RegExp.$1, 1 === RegExp.$1.length ? n[r] : ("00" + n[r]).substr(("" + n[r]).length)));
+    return t
+}
+
+function getDate(timestamp) {
+    return formatDate(timestamp, 'yyyy-MM-dd');
+}
+
+// ---biz---
 
 function skipOpenApp() {
     // .ContentItem.AnswerItem
     // .RichContent.is-collapsed.RichContent--unescapable
     Array.prototype.forEach.call(document.querySelectorAll('.ContentItem.AnswerItem'), function (ele) {
         ele.classList.add('my-fold');
-        var elRichContentInner = ele.querySelector('.RichContent-inner');
-        var button = ele.querySelector('button');
+        let elRichContentInner = ele.querySelector('.RichContent-inner');
+        let button = ele.querySelector('button');
+        let elMTimeMeta = ele.querySelector('meta[itemprop="dateModified"]');
+        let elCTimeMeta = ele.querySelector('meta[itemprop="dateCreated"]');
+
         if (button) {
-            button.remove();
+            button.style.display = 'none';
+        }
+        if (elRichContentInner) {
+            if (elMTimeMeta && elCTimeMeta) {
+                let mTime = elMTimeMeta.getAttribute('content').toString().split('T')[0];
+                let cTime = elCTimeMeta.getAttribute('content').toString().split('T')[0];
+                let elATime = elRichContentInner.parentElement.querySelector('.ContentItem-time');
+                let url = elCTimeMeta.previousElementSibling.getAttribute('content');
+                let mHtml = '';
+
+                if (mTime !== cTime) {
+                    mHtml = `<span class="my-updated-time">修改于 ${mTime}</span>`;
+                }
+                let tmpHtml = `<div>
+            <div class="ContentItem-time">
+                <a target="_blank" href="${url}">
+                    <span>发布于 ${cTime}</span>${mHtml}
+                </a>
+            </div>
+            </div>`;
+                if (elATime) {
+                    elATime.remove();
+                }
+                elRichContentInner.insertAdjacentHTML('afterend', tmpHtml);
+            }
+
+            if (elRichContentInner.parentElement.classList.contains('is-collapsed')) {
+                elRichContentInner.insertAdjacentHTML('afterend', `<span class="my-more-btn">↓展开↓</span><span class="my-less-btn">↑收起↑</span>`);
+                elRichContentInner.parentElement.classList.remove('is-collapsed');
+                elRichContentInner.setAttribute("style", "");
+                processFold(elRichContentInner.parentElement);
+            }
+
+            forEachArray(elRichContentInner.querySelectorAll('.GifPlayer'), el => {
+                el.addEventListener('click', () => {
+                    let elImg = el.querySelector('img'),
+                        elIcon = el.querySelector('svg'),
+                        url = elImg.getAttribute('src').toString().replace('.jpg', '.webp');
+                    if (elIcon) {
+                        elImg.setAttribute('src', url);
+                        elIcon.remove();
+                    }
+                });
+            });
+
         }
 
-        if (elRichContentInner) {
-            elRichContentInner.insertAdjacentHTML('afterend', `<span class="my-more-btn">↓展开↓</span><span class="my-less-btn">↑收起↑</span>`);
-            elRichContentInner.parentElement.classList.remove('is-collapsed');
-            elRichContentInner.setAttribute("style", "");
-            processFold(elRichContentInner.parentElement);
-        }
 
         ele.addEventListener("click", function (event) {
             event.preventDefault();
@@ -66,20 +183,27 @@ function removeAds() {
 }
 
 function removeBlock() {
-    removeIt('.MobileModal-backdrop');
-    removeIt('.MobileModal--plain.ConfirmModal');
-    removeIt('.AdBelowMoreAnswers');
-    removeIt('div.Card.HotQuestions');
-    removeIt('button.OpenInAppButton.OpenInApp');
+    removeBySelector('.MobileModal-backdrop');
+    removeBySelector('.MobileModal--plain.ConfirmModal');
+    removeBySelector('.AdBelowMoreAnswers');
+    removeBySelector('div.Card.HotQuestions');
+    removeBySelector('button.OpenInAppButton.OpenInApp');
+
+    let counter = 3;
+    let interval = null;
+    interval = setInterval(function () {
+        forEachBySelector('iframe', ele => {
+            if (ele.getAttribute('src').indexOf('https://www.zhihu.com/') !== 0) {
+                ele.remove();
+            }
+        });
+        counter--;
+        if (counter < 0) {
+            clearInterval(interval);
+        }
+    }, 1000);
 }
 
-function formatNumber(num) {
-    if (num > 10000) {
-        return (num / 10000).toFixed(2) + '万';
-    } else {
-        return num;
-    }
-}
 
 function processContent(content) {
     if (!content)
@@ -93,8 +217,13 @@ function loadContent(offset, limit) {
     return fetch(url).then(response => response.json());
 }
 
-function buildHtml(data) {
+function genAnswerItemHtml(data) {
     var content = processContent(data.content);
+    let upTimeHtml = '';
+    if (getDate(data.created_time) !== getDate(data.updated_time)) {
+        upTimeHtml = `<span class="my-updated-time">修改于 ${formatDate(data.updated_time, 'yyyy-MM-dd')}</span>`;
+    }
+
     var html = `<div class="List-item" tabindex="0" id="answer-${data.id}">
     <div class="ContentItem AnswerItem my-fold" data-za-index="0">
         <div class="ContentItem-meta">
@@ -128,14 +257,21 @@ function buildHtml(data) {
         <meta itemprop="image">
         <meta itemprop="upvoteCount" content="${data.voteup_count}">
         <meta itemprop="url" content="https://www.zhihu.com/question/${questionNumber}/answer/${data.id}">
-        <meta itemprop="dateCreated" content="2019-04-16T04:27:54.000Z">
-        <meta itemprop="dateModified" content="2020-05-18T09:33:53.000Z">
+        <meta itemprop="dateCreated" content="${formatDate(data.created_time, 'yyyy-MM-ddThh:mm:ss')}.000Z">
+        <meta itemprop="dateModified" content="${formatDate(data.updated_time, 'yyyy-MM-ddThh:mm:ss')}.000Z">
         <meta itemprop="commentCount" content="${data.comment_count}">
         <div class="RichContent RichContent--unescapable">
             <div class="RichContent-inner RichContent-inner--collapsed">
                 <span class="RichText ztext CopyrightRichText-richText" itemprop="text">
                 ${content}
                 </span>
+            </div>
+            <div>
+            <div class="ContentItem-time">
+                <a target="_blank" href="//www.zhihu.com/question/${questionNumber}/answer/${data.id}">
+                    <span>发布于 ${formatDate(data.created_time, 'yyyy-MM-dd')}</span>${upTimeHtml}
+                </a>
+            </div>
             </div>
 
             <span class="my-more-btn">↓展开↓</span>
@@ -183,6 +319,42 @@ function buildHtml(data) {
     return html;
 }
 
+
+function genVideoHtml(videoId) {
+    if (!videoId)
+        return '';
+
+    var html = `<div class="RichText-video" data-za-detail-view-path-module="VideoItem" data-za-extra-module="{&quot;card&quot;:{&quot;content&quot;:{&quot;type&quot;:&quot;Video&quot;,&quot;sub_type&quot;:&quot;SelfHosted&quot;,&quot;video_id&quot;:&quot;${videoId}&quot;,&quot;is_playable&quot;:true}}}">
+    <div class="VideoCard VideoCard--interactive VideoCard--mobile">
+        <div class="VideoCard-layout">
+            <div class="VideoCard-video">
+                <div class="VideoCard-video-content">
+                    <div class="VideoCard-player"><iframe frameborder="0" allowfullscreen="" src="https://www.zhihu.com/video/${videoId}?autoplay=false&amp;useMSE="></iframe></div>
+                </div>
+            </div>
+        </div>
+        <div class="VideoCard-mask"></div>
+    </div>
+</div>
+`;
+    return html;
+}
+
+function processVideo(elAncestor) {
+    if (elAncestor) {
+        forEachArray(elAncestor.querySelectorAll('a.video-box'), el => {
+            let videoId = el.dataset.lensId;
+            if (videoId) {
+                let html = genVideoHtml(videoId);
+                let div = document.createElement('div');
+                div.innerHTML = html;
+                el.insertAdjacentElement('afterend', div);
+                el.parentElement.removeChild(el);
+            }
+        });
+    }
+}
+
 function getListWrap() {
     if (!elList) {
         elList = document.querySelectorAll('.Question-main .List');
@@ -210,28 +382,23 @@ function loadAnswer() {
             return;
         }
         offset += data.data.length;
-        data.data.forEach(function (item) {
-            let elListItemWrap = document.createElement('div');
-            elListItemWrap.innerHTML = buildHtml(item);
-            getListWrap().insertAdjacentElement("beforeend", elListItemWrap);
-            processFold(elListItemWrap);
-            bindClickComment(elListItemWrap);
-        });
+        let elListWrap = getListWrap();
+        if (elListWrap) {
+            data.data.forEach(function (item) {
+                let elListItemWrap = document.createElement('div');
+                elListItemWrap.innerHTML = genAnswerItemHtml(item);
+                elListWrap.insertAdjacentElement("beforeend", elListItemWrap);
+                processFold(elListItemWrap.querySelector('.RichContent'));
+                bindClickComment(elListItemWrap);
+                processAHref(elListItemWrap);
+                processVideo(elListItemWrap);
+            });
+        } else {
+            console.warn('elListWrap empty');
+        }
     })
 }
 
-function isElementInViewport (el) {
-    // https://stackoverflow.com/questions/123999/how-can-i-tell-if-a-dom-element-is-visible-in-the-current-viewport
-    if (!el)
-        return false;
-
-    var rect = el.getBoundingClientRect();
-    if (rect.top >= 0) { // ↓
-        return rect.top < window.innerHeight;
-    } else {
-        return rect.top + rect.height > 0;
-    }
-}
 
 function addViewportCheckList(elListItem) {
     if (elListItem) {
@@ -251,17 +418,25 @@ function processFold(elRichContent) {
     var elMoreBtn = elRichContent.querySelector('.my-more-btn');
     var elLessBtn = elRichContent.querySelector('.my-less-btn');
     var elContentItem = elLessBtn.closest('.ContentItem');
+    var height = getElementHeight(elRichContent);
     if (elMoreBtn && elLessBtn && elContentItem) {
-        elMoreBtn.addEventListener('click', function (e) {
-            elContentItem.classList.add('my-unfold');
-            elContentItem.classList.remove('my-fold');
-            addViewportCheckList(elContentItem);
-        });
-        elLessBtn.addEventListener('click', function (e) {
-            elContentItem.classList.add('my-fold');
-            elContentItem.classList.remove('my-unfold');
-            removeViewportCheckList(elContentItem);
-        });
+        if (height > 0 && height < 400) {
+            elMoreBtn.remove();
+            elLessBtn.remove();
+        } else {
+            elMoreBtn.addEventListener('click', function (e) {
+                elContentItem.classList.add('my-unfold');
+                elContentItem.classList.remove('my-fold');
+                addViewportCheckList(elContentItem);
+            });
+            elLessBtn.addEventListener('click', function (e) {
+                elContentItem.classList.add('my-fold');
+                elContentItem.classList.remove('my-unfold');
+
+                removeViewportCheckList(elContentItem);
+                window.scrollTo(0, elContentItem.closest('.List-item').offsetTop);
+            });
+        }
     }
 }
 
@@ -335,7 +510,7 @@ function bindClickComment(elListItem) {
         } else {
             let answerId = (elListItem.querySelector('.ContentItem-meta ~ meta[itemprop="url"]').getAttribute('content').match(/\/answer\/(\d+)/) || [])[1];
             elComment = addCommentWrap(elListItem, answerId);
-            
+
             let elCommentWrap = elComment.querySelector('.CommentListV2');
             let elSwitchBtn = elComment.querySelector('div.Topbar-options > button');
             let elCommentFold = elComment.querySelector('a.comment-fold');
@@ -367,7 +542,7 @@ function bindClickComment(elListItem) {
             elCommentFold.addEventListener('click', function(){
                 elComment.classList.add('hide');
             });
-            
+
         }
     });
 }
@@ -403,10 +578,10 @@ function genCommentHtml(dataList) {
         return '';
     let html = '';
     dataList.forEach(function(data) {
-        html += genCommentItem(data, data.child_comment_count, 0);
+        html += genCommentItemHtml(data, data.child_comment_count, 0);
         if (data.child_comment_count) {
             data.child_comments.forEach(function (v) {
-                html += genCommentItem(v, 0, 1);
+                html += genCommentItemHtml(v, 0, 1);
             })
         }
     });
@@ -416,40 +591,8 @@ function genCommentHtml(dataList) {
     return html;
 }
 
-function formatUrl(url, formatStr) {
-    if (!formatStr)
-        formatStr = 'xs';
-    // s,xs,m, r
-    return url.replace('{size}', formatStr);
-}
 
-function dateFormat(e, t) {
-    if(e.toString().length === 10) { // 秒
-        e = e*1000;
-    }
-    e = new Date(e);
-    // yyyy-MM-dd hh:mm:ss
-    var n = {
-        "M+": e.getMonth() + 1,
-        "d+": e.getDate(),
-        "h+": e.getHours(),
-        "m+": e.getMinutes(),
-        "s+": e.getSeconds(),
-        "q+": Math.floor((e.getMonth() + 3) / 3),
-        S: e.getMilliseconds()
-    };
-    /(y+)/.test(t) && (t = t.replace(RegExp.$1, (e.getFullYear() + "").substr(4 - RegExp.$1.length)));
-    for (var r in n)
-        new RegExp("(" + r + ")").test(t) && (t = t.replace(RegExp.$1, 1 === RegExp.$1.length ? n[r] : ("00" + n[r]).substr(("" + n[r]).length)));
-    return t
-}
-
-function getDate(timestamp) {
-    return dateFormat(timestamp, 'yyyy-MM-dd');
-}
-
-
-function genCommentItem(item, hasChild, isChild) {
+function genCommentItemHtml(item, hasChild, isChild) {
     const liClass = !hasChild ? 'rootCommentNoChild' : (isChild ? 'child' : 'rootComment');
 
     var replyHtml = '';
@@ -569,11 +712,22 @@ function processComment(elComment, elCommentWrap) {
             let html = genCommentHtml(json.data);
             if (json.paging.is_end) {
                 elComment.dataset.isEnd = 1;
-                html += '<div style="text-align: center; padding: 10px;">评论全部已加载完成...</div>'
+                html += '<div style="text-align: center; padding: 10px;">全部评论已加载完成...</div>'
             }
             elCommentWrap.insertAdjacentHTML('beforeend', html);
+            processAHref(elCommentWrap);
         });
     }, 100);
+}
+
+function processAHref(elAncestor) {
+    if (elAncestor) {
+        forEachArray(
+            elAncestor.querySelectorAll('a[href^="https://link.zhihu.com/"]'),
+            ele => ele.setAttribute('href', decodeURIComponent(ele.getAttribute('href').replace('https://link.zhihu.com/?target=', '')))
+        )
+
+    }
 }
 
 function addCss() {
@@ -619,11 +773,14 @@ function addCss() {
         max-height: 500px;
     }
     a.comment-fold {
-        position: fixed; 
+        position: fixed;
         right: 10px;
         bottom: 30%;
         padding: 10px;
         z-index: 2;
+    }
+    .my-updated-time {
+        margin-left: 20px;
     }
 </style>
 <style type="text/css">
@@ -689,17 +846,19 @@ function addCss() {
     document.body.insertAdjacentHTML('beforeend', style);
 }
 
+
 // init
 if (fromMobile) {
     setTimeout(function () {
         addCss();
         skipOpenApp();
-        removeAds();
-        removeBlock();
         bindLoadData();
         bindProcessViewport();
     }, 200);
     setTimeout(function () {
+        removeAds();
+        removeBlock();
+        processAHref(document);
         offset += document.querySelectorAll('.List-item').length;
     }, 1000);
 }
