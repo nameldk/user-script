@@ -3,9 +3,10 @@
 // @namespace   https://www.zhihu.com/
 // @match       https://www.zhihu.com/question/*
 // @grant       none
-// @version     1.2
+// @version     1.2.1
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2020.08.03  v1.2.1 处理评论加载不完全,评论作者标识,收起按钮颜色区分,一些样式调整
 // @note        2020.08.02  v1.2 处理gif,视频,收起后的定位,发布时间,页面被清空的问题
 // ==/UserScript==
 
@@ -107,16 +108,16 @@ function skipOpenApp() {
     // .ContentItem.AnswerItem
     // .RichContent.is-collapsed.RichContent--unescapable
     Array.prototype.forEach.call(document.querySelectorAll('.ContentItem.AnswerItem'), function (ele) {
-        ele.classList.add('my-fold');
         let elRichContentInner = ele.querySelector('.RichContent-inner');
         let button = ele.querySelector('button');
-        let elMTimeMeta = ele.querySelector('meta[itemprop="dateModified"]');
-        let elCTimeMeta = ele.querySelector('meta[itemprop="dateCreated"]');
 
         if (button) {
             button.style.display = 'none';
         }
         if (elRichContentInner) {
+            let elMTimeMeta = ele.querySelector('meta[itemprop="dateModified"]');
+            let elCTimeMeta = ele.querySelector('meta[itemprop="dateCreated"]');
+
             if (elMTimeMeta && elCTimeMeta) {
                 let mTime = elMTimeMeta.getAttribute('content').toString().split('T')[0];
                 let cTime = elCTimeMeta.getAttribute('content').toString().split('T')[0];
@@ -125,7 +126,7 @@ function skipOpenApp() {
                 let mHtml = '';
 
                 if (mTime !== cTime) {
-                    mHtml = `<span class="my-updated-time">修改于 ${mTime}</span>`;
+                    mHtml = `<span class="my-updated-time">编辑于 ${mTime}</span>`;
                 }
                 let tmpHtml = `<div>
             <div class="ContentItem-time">
@@ -141,6 +142,7 @@ function skipOpenApp() {
             }
 
             if (elRichContentInner.parentElement.classList.contains('is-collapsed')) {
+                ele.classList.add('my-fold');
                 elRichContentInner.insertAdjacentHTML('afterend', `<span class="my-more-btn">↓展开↓</span><span class="my-less-btn">↑收起↑</span>`);
                 elRichContentInner.parentElement.classList.remove('is-collapsed');
                 elRichContentInner.setAttribute("style", "");
@@ -221,7 +223,7 @@ function genAnswerItemHtml(data) {
     var content = processContent(data.content);
     let upTimeHtml = '';
     if (getDate(data.created_time) !== getDate(data.updated_time)) {
-        upTimeHtml = `<span class="my-updated-time">修改于 ${formatDate(data.updated_time, 'yyyy-MM-dd')}</span>`;
+        upTimeHtml = `<span class="my-updated-time">编辑于 ${formatDate(data.updated_time, 'yyyy-MM-dd')}</span>`;
     }
 
     var html = `<div class="List-item" tabindex="0" id="answer-${data.id}">
@@ -378,8 +380,6 @@ function loadAnswer() {
         console.log('get data:', offset, limit);
         if (data.paging.is_end) {
             is_end = 1;
-            alert('到底了~');
-            return;
         }
         offset += data.data.length;
         let elListWrap = getListWrap();
@@ -393,6 +393,10 @@ function loadAnswer() {
                 processAHref(elListItemWrap);
                 processVideo(elListItemWrap);
             });
+            if (is_end) {
+                let html = '<div style="text-align: center; padding: 10px;">全部回答已加载完成...</div>'
+                elListWrap.insertAdjacentHTML("beforeend", html);
+            }
         } else {
             console.warn('elListWrap empty');
         }
@@ -418,9 +422,10 @@ function processFold(elRichContent) {
     var elMoreBtn = elRichContent.querySelector('.my-more-btn');
     var elLessBtn = elRichContent.querySelector('.my-less-btn');
     var elContentItem = elLessBtn.closest('.ContentItem');
-    var height = getElementHeight(elRichContent);
     if (elMoreBtn && elLessBtn && elContentItem) {
-        if (height > 0 && height < 400) {
+        let height = getElementHeight(elRichContent);
+        if (height > 0 && height < 400 && elRichContent.querySelectorAll('img').length < 2) {
+            elContentItem.classList.remove('my-fold');
             elMoreBtn.remove();
             elLessBtn.remove();
         } else {
@@ -444,7 +449,7 @@ function bindLoadData() {
     var el = document.querySelector('div.Card.ViewAllInappCard');
     if (inDetailPage) {
         el.style.textAlign = "center";
-        el.innerHTML = '<a style="padding: 10px;" href="'+location.href.replace(/\/answer.+/,'')+'">查看所有问题<a>';
+        el.innerHTML = '<a style="padding: 10px;" href="'+location.href.replace(/\/answer.+/,'')+'">查看所有回答<a>';
         return;
     }
     el.insertAdjacentHTML('beforebegin', `<div id="my-loading" class="hide"><div class="loadingio-spinner-dual-ring-41hxycfuw5t"><div class="ldio-4crll70kj">
@@ -453,6 +458,9 @@ function bindLoadData() {
 
     elLoading = document.getElementById('my-loading');
     window.onscroll = function() {
+        if (is_end) {
+            return;
+        }
         if ((window.innerHeight + window.scrollY + 50) >= document.body.offsetHeight) {
             console.log('reach bottom');
             if (loadAnswerInterval) {
@@ -597,14 +605,16 @@ function genCommentItemHtml(item, hasChild, isChild) {
 
     var replyHtml = '';
     if (item.reply_to_author) {
-        replyHtml = `<span class="CommentItemV2-roleInfo"> (作者) </span>
+        if (item.author && item.author.role === 'author') {
+            replyHtml += `<span class="CommentItemV2-roleInfo"> (作者) </span>`; 
+        }
+        replyHtml += `
 <span class="CommentItemV2-reply">回复</span>
 <span class="UserLink">
     <a class="UserLink-link" data-za-detail-view-element_name="User" target="_blank"
     href="//www.zhihu.com/people/${item.reply_to_author.member.url_token}">${item.reply_to_author.member.name}</a>
 </span>`;
     }
-
     var html = `<li class="NestComment--${liClass}">
         <div class="CommentItemV2">
             <div>
@@ -758,9 +768,12 @@ function addCss() {
     }
     .my-less-btn {
         position: fixed;
-        top: 50px;
+        top: 80px;
         right: 10px;
         padding: 0 10px 10px 10px;
+        z-index: 2;
+        color: black;
+        text-shadow: 1px 1px 1px white;
     }
     #my-loading {
         text-align: center;
@@ -780,7 +793,7 @@ function addCss() {
         z-index: 2;
     }
     .my-updated-time {
-        margin-left: 20px;
+        margin-left: 10px;
     }
 </style>
 <style type="text/css">
