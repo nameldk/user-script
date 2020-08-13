@@ -3,9 +3,10 @@
 // @namespace   https://www.zhihu.com/
 // @match       https://www.zhihu.com/question/*
 // @grant       none
-// @version     1.2.1
+// @version     1.2.2
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2020.08.13  v1.2.2 修复已加载完的评论切换排序不显示的问题
 // @note        2020.08.03  v1.2.1 处理评论加载不完全,评论作者标识,收起按钮颜色区分,一些样式调整
 // @note        2020.08.02  v1.2 处理gif,视频,收起后的定位,发布时间,页面被清空的问题
 // ==/UserScript==
@@ -524,7 +525,7 @@ function bindClickComment(elListItem) {
             let elCommentFold = elComment.querySelector('a.comment-fold');
 
             elComment.dataset.answerId = answerId;
-            elComment.dataset.offset = 0;
+            elComment.dataset.offset = "0";
 
             processComment(elComment, elCommentWrap);
 
@@ -537,12 +538,13 @@ function bindClickComment(elListItem) {
             elSwitchBtn.addEventListener('click', function(){
                 if (elSwitchBtn.innerText === '切换为时间排序') {
                     elSwitchBtn.innerText = '切换为默认排序';
-                    elComment.dataset.isReverse = 0;
+                    elComment.dataset.isReverse = "0";
                 } else {
                     elSwitchBtn.innerText = '切换为时间排序';
-                    elComment.dataset.isReverse = 1;
+                    elComment.dataset.isReverse = "1";
                 }
-                elComment.dataset.offset = 0;
+                elComment.dataset.offset = "0";
+                elComment.dataset.isEnd = "0";
                 elCommentWrap.innerHTML = '';
                 processComment(elComment, elCommentWrap);
             });
@@ -721,7 +723,7 @@ function processComment(elComment, elCommentWrap) {
             elLoading = null;
             let html = genCommentHtml(json.data);
             if (json.paging.is_end) {
-                elComment.dataset.isEnd = 1;
+                elComment.dataset.isEnd = "1";
                 html += '<div style="text-align: center; padding: 10px;">全部评论已加载完成...</div>'
             }
             elCommentWrap.insertAdjacentHTML('beforeend', html);
