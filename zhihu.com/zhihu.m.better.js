@@ -3,9 +3,10 @@
 // @namespace   https://www.zhihu.com/
 // @match       https://www.zhihu.com/question/*
 // @grant       none
-// @version     1.2.2
+// @version     1.2.3
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2020.08.14  v1.2.3 适配新版页面
 // @note        2020.08.13  v1.2.2 修复已加载完的评论切换排序不显示的问题
 // @note        2020.08.03  v1.2.1 处理评论加载不完全,评论作者标识,收起按钮颜色区分,一些样式调整
 // @note        2020.08.02  v1.2 处理gif,视频,收起后的定位,发布时间,页面被清空的问题
@@ -144,10 +145,12 @@ function skipOpenApp() {
 
             if (elRichContentInner.parentElement.classList.contains('is-collapsed')) {
                 ele.classList.add('my-fold');
-                elRichContentInner.insertAdjacentHTML('afterend', `<span class="my-more-btn">↓展开↓</span><span class="my-less-btn">↑收起↑</span>`);
-                elRichContentInner.parentElement.classList.remove('is-collapsed');
-                elRichContentInner.setAttribute("style", "");
-                processFold(elRichContentInner.parentElement);
+                setTimeout(function () {
+                    elRichContentInner.insertAdjacentHTML('afterend', `<span class="my-more-btn">↓展开↓</span><span class="my-less-btn">↑收起↑</span>`);
+                    elRichContentInner.parentElement.classList.remove('is-collapsed');
+                    elRichContentInner.setAttribute("style", "");
+                    processFold(elRichContentInner.parentElement);
+                }, 0);
             }
 
             forEachArray(elRichContentInner.querySelectorAll('.GifPlayer'), el => {
@@ -176,7 +179,9 @@ function skipOpenApp() {
         bindClickComment(ele.parentElement);
     });
 
+    document.body.classList.remove('ModalWrap-body');
     document.body.style.overflow = "auto";
+    removeBySelector('div.Card.AnswersNavWrapper div.ModalWrap');
 }
 
 function removeAds() {
@@ -191,6 +196,7 @@ function removeBlock() {
     removeBySelector('.AdBelowMoreAnswers');
     removeBySelector('div.Card.HotQuestions');
     removeBySelector('button.OpenInAppButton.OpenInApp');
+    removeBySelector('.CommentsForOia');
 
     let counter = 3;
     let interval = null;
@@ -462,7 +468,7 @@ function bindLoadData() {
         if (is_end) {
             return;
         }
-        if ((window.innerHeight + window.scrollY + 50) >= document.body.offsetHeight) {
+        if ((window.innerHeight + window.scrollY + 100) >= document.body.offsetHeight) {
             console.log('reach bottom');
             if (loadAnswerInterval) {
                 clearTimeout(loadAnswerInterval);
@@ -530,7 +536,7 @@ function bindClickComment(elListItem) {
             processComment(elComment, elCommentWrap);
 
             elCommentWrap.addEventListener('scroll', function(){
-                if (elCommentWrap.scrollTop + elCommentWrap.offsetHeight + 20 > elCommentWrap.scrollHeight) {
+                if (elCommentWrap.scrollTop + elCommentWrap.offsetHeight + 100 > elCommentWrap.scrollHeight) {
                     processComment(elComment, elCommentWrap);
                 }
             }, false);
