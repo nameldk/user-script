@@ -150,7 +150,7 @@ function skipOpenApp() {
                     elRichContentInner.parentElement.classList.remove('is-collapsed');
                     elRichContentInner.setAttribute("style", "");
                     processFold(elRichContentInner.parentElement);
-                }, 0);
+                }, 1000);
             }
 
             forEachArray(elRichContentInner.querySelectorAll('.GifPlayer'), el => {
@@ -802,6 +802,10 @@ function addCss() {
     }
     .my-updated-time {
         margin-left: 10px;
+    }
+    .CommentsForOia, #div-gpt-ad-bannerAd,div.Card.AnswersNavWrapper div.ModalWrap, .MobileModal-backdrop,
+        .MobileModal--plain.ConfirmModal,.AdBelowMoreAnswers,div.Card.HotQuestions, button.OpenInAppButton.OpenInApp {
+        display: none;
     }
 </style>
 <style type="text/css">
