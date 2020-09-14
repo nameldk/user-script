@@ -3,9 +3,10 @@
 // @namespace   https://www.zhihu.com/
 // @match       https://www.zhihu.com/question/*
 // @grant       none
-// @version     1.2.3
+// @version     1.2.4
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2020.09.14  v1.2.4 修复评论超出的问题
 // @note        2020.08.14  v1.2.3 适配新版页面
 // @note        2020.08.13  v1.2.2 修复已加载完的评论切换排序不显示的问题
 // @note        2020.08.03  v1.2.1 处理评论加载不完全,评论作者标识,收起按钮颜色区分,一些样式调整
@@ -792,6 +793,7 @@ function addCss() {
     }
     .CommentListV2 {
         max-height: 500px;
+        overflow-y: scroll;
     }
     a.comment-fold {
         position: fixed;
