@@ -3,9 +3,10 @@
 // @namespace   https://www.zhihu.com/
 // @match       https://www.zhihu.com/question/*
 // @grant       none
-// @version     1.2.4
+// @version     1.2.5
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2020.10.13  v1.2.5 修复蒙层偶尔不消失的问题
 // @note        2020.09.14  v1.2.4 修复评论超出的问题
 // @note        2020.08.14  v1.2.3 适配新版页面
 // @note        2020.08.13  v1.2.2 修复已加载完的评论切换排序不显示的问题
@@ -25,6 +26,8 @@ var elLoading = null;
 var loadAnswerInterval = null;
 var loadCommentInterval = null;
 var viewportElCheckList = [];
+var debug = 0;
+var log = debug ? console.log : function(){};
 
 
 function forEachArray(arrayLike, cb) {
@@ -41,6 +44,9 @@ function removeBySelector(s) {
     forEachBySelector(s, ele => ele.remove());
 }
 
+function hideBySelector(s) {
+    forEachBySelector(s, ele => ele.style.display = "none");
+}
 
 function getElementHeight(el) {
     if (el) {
@@ -108,6 +114,7 @@ function getDate(timestamp) {
 // ---biz---
 
 function skipOpenApp() {
+    log('run:skipOpenApp');
     // .ContentItem.AnswerItem
     // .RichContent.is-collapsed.RichContent--unescapable
     Array.prototype.forEach.call(document.querySelectorAll('.ContentItem.AnswerItem'), function (ele) {
@@ -186,18 +193,21 @@ function skipOpenApp() {
 }
 
 function removeAds() {
+    log('run:removeAds');
     Array.prototype.forEach.call(document.querySelectorAll('.MBannerAd'), function (ele) {
         ele.parentNode.removeChild(ele)
     });
 }
 
 function removeBlock() {
+    log('run:removeBlock');
     removeBySelector('.MobileModal-backdrop');
     removeBySelector('.MobileModal--plain.ConfirmModal');
     removeBySelector('.AdBelowMoreAnswers');
     removeBySelector('div.Card.HotQuestions');
     removeBySelector('button.OpenInAppButton.OpenInApp');
     removeBySelector('.CommentsForOia');
+    hideBySelector('div.ModalWrap');
 
     let counter = 3;
     let interval = null;
@@ -385,7 +395,7 @@ function loadAnswer() {
         if (elLoading) {
             elLoading.classList.add('hide');
         }
-        console.log('get data:', offset, limit);
+        log('get data:', offset, limit);
         if (data.paging.is_end) {
             is_end = 1;
         }
@@ -454,6 +464,7 @@ function processFold(elRichContent) {
 }
 
 function bindLoadData() {
+    log('run:bindLoadData');
     var el = document.querySelector('div.Card.ViewAllInappCard');
     if (inDetailPage) {
         el.style.textAlign = "center";
@@ -470,13 +481,13 @@ function bindLoadData() {
             return;
         }
         if ((window.innerHeight + window.scrollY + 100) >= document.body.offsetHeight) {
-            console.log('reach bottom');
+            log('reach bottom');
             if (loadAnswerInterval) {
                 clearTimeout(loadAnswerInterval);
             }
 
             loadAnswerInterval = setTimeout(function(){
-                console.log('to load', offset, limit);
+                log('to load', offset, limit);
                 loadAnswer();
             }, 100);
         }
@@ -484,13 +495,14 @@ function bindLoadData() {
 }
 
 function bindProcessViewport() {
+    log('run:bindProcessViewport');
     var interval;
     document.addEventListener('scroll', function () {
         if (interval) {
             clearTimeout(interval);
         }
         interval = setTimeout(function () {
-            // console.log('scroll-view:', viewportElCheckList.length);
+            // log('scroll-view:', viewportElCheckList.length);
             if (viewportElCheckList.length) {
                 viewportElCheckList.forEach(function (elListItem) {
                     var elLessBtn = elListItem.querySelector('.my-less-btn');
@@ -720,11 +732,11 @@ function processComment(elComment, elCommentWrap) {
     }
 
     loadCommentInterval = setTimeout(function() {
-        console.log('beginLoadComment', offset);
+        log('beginLoadComment', offset);
         var elLoading = genCommentLoding();
         elCommentWrap.appendChild(elLoading);
         loadCommentData(answerId, offset, isReverse).then(function (json) {
-            console.log('getCommentData', offset);
+            log('getCommentData', offset);
             elComment.dataset.offset = offset + 10;
             elCommentWrap.removeChild(elLoading);
             elLoading = null;
@@ -740,6 +752,7 @@ function processComment(elComment, elCommentWrap) {
 }
 
 function processAHref(elAncestor) {
+    log('run:processAHref');
     if (elAncestor) {
         forEachArray(
             elAncestor.querySelectorAll('a[href^="https://link.zhihu.com/"]'),
@@ -750,6 +763,7 @@ function processAHref(elAncestor) {
 }
 
 function addCss() {
+    log('run:addCss');
     var style = `
 <style type="text/css">
     .my-fold .RichContent-inner {
