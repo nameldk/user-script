@@ -3,9 +3,10 @@
 // @namespace   https://www.zhihu.com/
 // @match       https://www.zhihu.com/question/*
 // @grant       none
-// @version     1.2.5
+// @version     1.2.6
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2020.12.22  v1.2.6 修复链接无法打开的问题，外部链接直接打开
 // @note        2020.10.13  v1.2.5 修复蒙层偶尔不消失的问题
 // @note        2020.09.14  v1.2.4 修复评论超出的问题
 // @note        2020.08.14  v1.2.3 适配新版页面
@@ -756,10 +757,33 @@ function processAHref(elAncestor) {
     if (elAncestor) {
         forEachArray(
             elAncestor.querySelectorAll('a[href^="https://link.zhihu.com/"]'),
-            ele => ele.setAttribute('href', decodeURIComponent(ele.getAttribute('href').replace('https://link.zhihu.com/?target=', '')))
+            ele => {
+                ele.setAttribute('href', decodeURIComponent(ele.getAttribute('href').replace('https://link.zhihu.com/?target=', '')));
+                ele.setAttribute('target', '_blank');
+                ele.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                });
+            }
         )
-
     }
+}
+
+function processAllLink() {
+    // https://developer.mozilla.org/en-US/docs/Web/API/MutationObserver
+    processAHref(document);
+
+    const targetNode = document;
+    const config = { childList:true, subtree: true };
+    const callback = function(mutationsList) {
+        for(const mutation of mutationsList) {
+            if (mutation.addedNodes.length) {
+                forEachArray(mutation.addedNodes, ele => processAHref(ele));
+            }
+        }
+    };
+
+    const observer = new MutationObserver(callback);
+    observer.observe(targetNode, config);
 }
 
 function addCss() {
@@ -902,4 +926,6 @@ if (fromMobile) {
         processAHref(document);
         offset += document.querySelectorAll('.List-item').length;
     }, 1000);
+} else {
+    setTimeout(processAllLink, 500);
 }
