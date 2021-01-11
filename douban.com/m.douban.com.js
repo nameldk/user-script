@@ -31,6 +31,10 @@
         return context.querySelectorAll(selector);
     }
 
+    function removeBySelector(selector, context) {
+        $$(selector, context).forEach(el => el.remove());
+    }
+
     function matchUrl(url) {
         if (typeof url === 'string') {
             return location.href.indexOf(url) > -1
@@ -68,6 +72,9 @@
                 elClosest.style.minHeight = null;
                 elClosest.style.overflow = null;
                 newNode.remove();
+
+                removeBySelector('.oia-readall', elClosest);
+                removeBySelector('.oia-prompt-box', elClosest);
             });
         });
     }
@@ -86,7 +93,7 @@
                 el.href = href;
                 el.addEventListener('click', e => e.stopPropagation());
             }
-            el.innerText = el.innerText.replace(/\·?\s*打开App，?/, '');
+            el.innerHTML = el.innerHTML.replace(/\·?\s*打开App，?/, '');
         });
     }
 
