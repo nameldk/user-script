@@ -98,6 +98,8 @@
     // douban 首页
     function biz_douban_home_guide() {
         biz_douban_common_a_to_app();
+
+        $$('.app-items>a').forEach(el => el.removeAttribute('target'));
     }
 
     // douban小组详情
@@ -118,10 +120,14 @@
     }
 
     // doban 按钮设置
-    function biz_douban_btn_set_url(elBtn, textOrFunc, url) {
+    function biz_douban_btn_set_url(elBtn, textOrFunc, url, params) {
         if (elBtn) {
             elBtn.setAttribute('href', url || elBtn.href || '');
-            elBtn.innerText = isFunction(textOrFunc) ? textOrFunc(elBtn.innerText) : textOrFunc;
+            if (params && params.is_html) {
+                elBtn.innerHTML = isFunction(textOrFunc) ? textOrFunc(elBtn.innerText) : textOrFunc;
+            } else {
+                elBtn.innerText = isFunction(textOrFunc) ? textOrFunc(elBtn.innerText) : textOrFunc;
+            }
             elBtn.addEventListener('click', e => e.stopPropagation());
         }
     }
@@ -132,8 +138,8 @@
         if (!subjectId)
             return;
         // 打开App查看全部预告片
-        let elBtn = $('span.app-link');
-        biz_douban_btn_set_url(elBtn, '查看全部剧照', location.pathname + 'all_photos');
+        let elBtn = $('body > div.page > div.card > section.subject-pics > h2 > a');
+        biz_douban_btn_set_url(elBtn, '<span class="app-link">查看全部剧照</span>', location.pathname + 'all_photos', {"is_html": 1});
 
         // 打开App，看更多热门短评
         elBtn = $('#comment-list > div > a');
