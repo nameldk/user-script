@@ -1,17 +1,19 @@
 // ==UserScript==
 // @name         douban手机网页站可用
-// @namespace    https://m.douban.com/
+// @namespace    https://github.com/nameldk/user-script
 // @match        https://m.douban.com/home_guide*
 // @match        https://m.douban.com/group/*
 // @match        https://m.douban.com/group/topic/*
 // @match        https://m.douban.com/movie/subject/*
 // @match        https://m.douban.com/movie/review/*
 // @match        https://m.douban.com/book/subject/*
+// @match        https://m.douban.com/book/review/*
 // @match        https://m.douban.com/music/subject/*
 // @grant        none
-// @version      0.1.1
+// @version      0.1.2
 // @author       nameldk
 // @description  douban手机网页站跳过部分打开App查看
+// @note         2021.01.20  v0.1.2 修复影评下查看全部回复，添加处理书评。
 // @note         2021.01.11  v0.1.1 基本能用了
 
 // ==/UserScript==
@@ -159,12 +161,9 @@
 
     // douban 影评
     function biz_bouban_movie_review() {
-        let ela = $('.go-review-list > a');
-        if (ela) {
-            let subjectId = (ela.href.match(/\/movie\/subject\/(\d+)\/reviews/)||[])[1] || 0;
-            let elBtn = $('body > div.page > div.card > section.note-comments > a');
-            biz_douban_btn_set_url(elBtn, '查看全部回复', `https://m.douban.com/movie/subject/${subjectId}/comments`);
-        }
+        let reviewId = (location.href.match(/\/movie\/review\/(\d+)/)||[])[1] || 0;
+        let elBtn = $('body > div.page > div.card > section.note-comments > a');
+        biz_douban_btn_set_url(elBtn, '查看全部回复', `https://m.douban.com/movie/review/${reviewId}/comments`);
 
         biz_douban_common_read_all();
     }
@@ -183,6 +182,15 @@
 
         elBtn = $('#discussions-root > div > a');
         biz_douban_btn_set_url(elBtn, '查看讨论', `https://m.douban.com/book/subject/${subjectId}/discussions`);
+    }
+
+    // douban 书评
+    function biz_douban_book_review() {
+        let reviewId = (location.href.match(/\/book\/review\/(\d+)/)||[])[1] || 0;
+        let elBtn = $('body > div.page > div.card > section.note-comments > a');
+        biz_douban_btn_set_url(elBtn, '查看全部回复', `https://m.douban.com/book/review/${reviewId}/comments`);
+
+        biz_douban_common_read_all();
     }
 
     // douban music
@@ -220,6 +228,10 @@
 
     if (matchUrl('https://m.douban.com/book/subject/')) {
         delay(1, biz_douban_book_subject);
+    }
+
+    if (matchUrl('https://m.douban.com/book/review/')) {
+        delay(1, biz_douban_book_review);
     }
 
     if (matchUrl('https://m.douban.com/music/subject/')) {
