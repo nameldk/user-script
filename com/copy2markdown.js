@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         复制为Markdown格式
 // @namespace    https://github.com/nameldk/user-script
-// @version      0.3.1
+// @version      0.3.2
 // @description  复制网页内容为Markdown格式。点击右上角copy按钮开始选择内容，点击鼠标或按Enter进行复制。按Esc取消选择，上箭头选择父级，下箭头选择子级，左箭头选择前面的相邻元素，右箭头选择后面的相邻元素。按钮可以拖动。Ctrl+c+c激活。
 // @author       nameldk
 // @require      https://unpkg.com/turndown/dist/turndown.js
@@ -18,6 +18,9 @@
     let $curElement = null;
     let $btn = document.createElement("div");
     let turndownService = new TurndownService();
+    let urlProtocol = document.location.protocol;
+    let urlOrigin = document.location.origin;
+    let urlPath = (document.location.pathname.substring(0, document.location.pathname.lastIndexOf('/'))) + '/';
     let isHold = 0,
         isDrag = 0;
 
@@ -151,15 +154,44 @@
     function copyIt($curElement) {
         if ($curElement) {
             let html = $curElement.innerHTML;
-            html = html.replace(/(<img.+\s?src=")(\/\/.+?")/gi, "$1" + document.location.protocol + "$2")
-                .replace(/(<img.+\s?src=")(\/.+?")/gi, "$1" + document.location.origin + "$2")
-                .replace(/(<img.+\s?src=")(?!http)(.+?")/gi, "$1" + document.location.origin +
-                         (document.location.pathname.substring(0, document.location.pathname.lastIndexOf('/'))) + "/$2")
-                .replace(/(<a.+?href=")(.*?")(.*?<\/a>)/gi, parseHref);
+            html = html
+                .replace(/<figure[\s\S]+?<\/figure>/gi, processFigure)
+                .replace(/<img[^>]+>/gi, processImg)
+                .replace(/(<a.+?href=")(.*?")(.*?<\/a>)/gi, parseHref)
+            ;
             let markdown = turndownService.turndown(html);
             markdown = markdown.replace(/<img.+?>/g, "");
             copyToClipboard(markdown);
         }
+    }
+
+    function processFigure(str) {
+        str = str.replace(/<noscript>[\s\S]*<\/noscript>/, '');
+        let img = str.match(/<img[^>]+?>/);
+        if (img) {
+            return img[0];
+        }
+        return str;
+    }
+
+    function processImg(imgStr) {
+        let src = (imgStr.match(/\ssrc=(["'])(.*?)\1/) || [])[2];
+        if (!src)
+            return '';
+        let original = (imgStr.match(/\sdata-original=(["'])(.*?)\1/) || [])[2];
+        if (original) {
+            src = original;
+        }
+        if (src.toLowerCase().indexOf('http') === 0) {
+            return '<img src="'+src+'" />';
+        } else if (src.indexOf('//') === 0) {
+            src = urlProtocol + src;
+        } else if (src.indexOf('/') === 0) {
+            src = urlOrigin + src;
+        } else {
+            src = urlPath + src;
+        }
+        return '<img src="'+src+'" />';
     }
 
     function parseHref(match, head, link, tail){
