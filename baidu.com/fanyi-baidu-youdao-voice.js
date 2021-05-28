@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name         添加有道发音
 // @namespace    https://github.com/nameldk/user-script
-// @version      0.2
+// @version      0.2.1
 // @description  百度翻译页面添加有道发音
 // @author       nameldk
 // @match        https://fanyi.baidu.com/
 // @grant        none
+// @note         2021.05.28  v0.2.1 添加加载中效果
 // @note         2021.05.27  v0.2 手机访问时添加发音
 // ==/UserScript==
 
@@ -19,20 +20,43 @@
         if (!text || !elIcon)
             return;
         let url = 'https://dict.youdao.com/dictvoice?audio=' + text + '&le=eng';
-        let audio = new Audio(url);
         let clsActive = 'sound-active';
+        let clsLoading = 'sound-load';
+
+        if (elIcon.classList.contains(clsLoading)) {
+            return;
+        }
 
         if (curAudio) {
-            curAudio.pause();
+            if (elIcon === curIcon) {
+                curAudio.currentTime = 0;
+                curAudio.play();
+                return;
+            }
+            if (!curAudio.paused) {
+                curAudio.pause();
+            }
             curIcon.classList.remove(clsActive);
+            curIcon.classList.remove(clsLoading);
         }
-        elIcon.classList.add(clsActive);
-        audio.onended = function () {
+
+        let audio = new Audio(url);
+        elIcon.classList.add(clsLoading);
+
+        audio.addEventListener('canplay', () => {
+            elIcon.classList.remove(clsLoading);
+            elIcon.classList.add(clsActive);
+        });
+
+        audio.addEventListener('ended', () => {
             elIcon.classList.remove(clsActive);
-        };
-        audio.play();
-        curAudio = audio;
-        curIcon = elIcon;
+        });
+
+        audio.addEventListener('canplaythrough', () => {
+            audio.play();
+            curAudio = audio;
+            curIcon = elIcon;
+        });
     }
 
     function queryAll(selector, parent, cb) {
@@ -63,6 +87,16 @@
 
     function processPc() {
         let style = `<style> 
+@-webkit-keyframes loading{0%{-webkit-transform:rotate(0deg)}
+25%{-webkit-transform:rotate(90deg)}
+50%{-webkit-transform:rotate(180deg)}
+75%{-webkit-transform:rotate(270deg)}
+100%{-webkit-transform:rotate(360deg)}}
+@keyframes loading{0%{-webkit-transform:rotate(0deg)}
+25%{-webkit-transform:rotate(90deg)}
+50%{-webkit-transform:rotate(180deg)}
+75%{-webkit-transform:rotate(270deg)}
+100%{-webkit-transform:rotate(360deg)}}
 span.yd-voice {
     position: relative;
     display: inline-block;
@@ -78,6 +112,12 @@ span.yd-voice.sound-active {
     background-repeat: no-repeat;
     background-position: 0 -3px;
     padding: 0;
+}
+span.yd-voice.sound-load {
+    background: url(//fanyi.baidu.com/static/translate-mobile/widget/input/load_3ddd478.png) no-repeat;
+    background-size: 18px;
+    -webkit-animation: loading 1s linear infinite;
+    animation: loading 1s linear infinite;
 }
 </style>`;
         document.body.insertAdjacentHTML('beforeend', style);
@@ -151,6 +191,12 @@ a.yd-voice span {
 a.yd-voice.sound-active span {
     background: url(//fanyi.baidu.com/static/translate-mobile/widget/input/sound_52b079a.gif) -14px -11px no-repeat;
     background-size: 48px;
+}
+a.yd-voice.sound-load span {
+    background: url(//fanyi.baidu.com/static/translate-mobile/widget/input/load_3ddd478.png) no-repeat;
+    background-size: 18px;
+    -webkit-animation: loading 1s linear infinite;
+    animation: loading 1s linear infinite;
 }
 .entry-idg .yd-voice, #j-transoper .yd-voice{
     position: relative;
