@@ -6,9 +6,10 @@
 // @match       https://www.zhihu.com/question/*
 // @match       https://www.zhihu.com/zvideo/*
 // @grant       none
-// @version     1.2.7
+// @version     1.2.8
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2020.06.10  v1.2.8 处理视频被误删除问题
 // @note        2020.12.30  v1.2.7 处理首页和视频页面
 // @note        2020.12.22  v1.2.6 修复链接无法打开的问题，外部链接直接打开
 // @note        2020.10.13  v1.2.5 修复蒙层偶尔不消失的问题
@@ -274,7 +275,7 @@ function removeBlock() {
     let interval = null;
     interval = setInterval(function () {
         forEachBySelector('iframe', ele => {
-            if (ele.getAttribute('src').indexOf('https://www.zhihu.com/') !== 0) {
+            if (!ele.getAttribute('src').toString().match(/^https?:\/\/[a-zA-Z0-9]+?\.?zhihu.com\//)) {
                 ele.remove();
             }
         });
