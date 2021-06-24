@@ -9,7 +9,8 @@
 // @version     1.2.8
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
-// @note        2020.06.10  v1.2.8 处理视频被误删除问题
+// @note        2021.06.24  v1.2.9 处理评论样式
+// @note        2021.06.10  v1.2.8 处理视频被误删除问题
 // @note        2020.12.30  v1.2.7 处理首页和视频页面
 // @note        2020.12.22  v1.2.6 修复链接无法打开的问题，外部链接直接打开
 // @note        2020.10.13  v1.2.5 修复蒙层偶尔不消失的问题
@@ -170,6 +171,35 @@ function addCommonStyle() {
         .DownloadGuide-inner, .DownloadGuide{
         display: none;
     }
+.CommentItemV2 {
+    position: relative;
+    -ms-flex-negative: 0;
+    flex-shrink: 0;
+    padding: 10px 5px;
+    font-size: 15px
+}
+.CommentItemV2-time {
+    float: right;
+    font-size: 14px;
+    color: #8590a6;
+}
+.CommentItemV2-avatar {
+    margin-right: 8px;
+}
+.CommentItemV2-metaSibling {
+    padding-left: 33px;
+}
+.CommentItemV2-content {
+    margin-bottom: 6px;
+    line-height: 25px;
+}
+.CommentItemV2-reply, .CommentItemV2-roleInfo, html[data-theme=dark] .CommentItemV2-reply, html[data-theme=dark] .CommentItemV2-roleInfo {
+    color: #8590a6;
+}
+.NestComment .NestComment--child {
+    position: relative;
+    padding-left: 33px;
+}
 </style>`;
     addStyle(style);
 }
@@ -669,23 +699,20 @@ function genCommentHtml(dataList) {
         return '';
     let html = '';
     dataList.forEach(function(data) {
-        html += genCommentItemHtml(data, data.child_comment_count, 0);
+        let liClass = data.child_comment_count ? 'rootComment' : 'rootCommentNoChild';
+        let tmp = genCommentItemHtml(data, liClass);
         if (data.child_comment_count) {
             data.child_comments.forEach(function (v) {
-                html += genCommentItemHtml(v, 0, 1);
-            })
+                tmp += genCommentItemHtml(v, 'child');
+            });
         }
+        html += `<ul class="NestComment">${tmp}</ul>`;
     });
-    if (html) {
-        return `<ul class="NestComment">${html}</ul>`;
-    }
     return html;
 }
 
 
-function genCommentItemHtml(item, hasChild, isChild) {
-    const liClass = !hasChild ? 'rootCommentNoChild' : (isChild ? 'child' : 'rootComment');
-
+function genCommentItemHtml(item, liClass) {
     var replyHtml = '';
     if (item.reply_to_author) {
         if (item.author && item.author.role === 'author') {
@@ -731,27 +758,6 @@ function genCommentItemHtml(item, hasChild, isChild) {
                                 d="M14.445 9h5.387s2.997.154 1.95 3.669c-.168.51-2.346 6.911-2.346 6.911s-.763 1.416-2.86 1.416H8.989c-1.498 0-2.005-.896-1.989-2v-7.998c0-.987.336-2.032 1.114-2.639 4.45-3.773 3.436-4.597 4.45-5.83.985-1.13 3.2-.5 3.037 2.362C15.201 7.397 14.445 9 14.445 9zM3 9h2a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V10a1 1 0 0 1 1-1z"
                                 fill-rule="evenodd"></path></svg></span>${item.vote_count}
                         </button>
-                        <!--<button type="button" class="Button CommentItemV2-hoverBtn Button--plain"><span
-                                style="display: inline-flex; align-items: center;">&#8203;<svg
-                                class="Zi Zi--Reply" fill="currentColor" viewBox="0 0 24 24" width="16"
-                                height="16" style="margin-right: 5px;"><path
-                                d="M22.959 17.22c-1.686-3.552-5.128-8.062-11.636-8.65-.539-.053-1.376-.436-1.376-1.561V4.678c0-.521-.635-.915-1.116-.521L1.469 10.67a1.506 1.506 0 0 0-.1 2.08s6.99 6.818 7.443 7.114c.453.295 1.136.124 1.135-.501V17a1.525 1.525 0 0 1 1.532-1.466c1.186-.139 7.597-.077 10.33 2.396 0 0 .396.257.536.257.892 0 .614-.967.614-.967z"
-                                fill-rule="evenodd"></path></svg></span>回复
-                        </button>
-                        <button type="button" class="Button CommentItemV2-hoverBtn Button--plain"><span
-                                style="display: inline-flex; align-items: center;">&#8203;<svg
-                                class="Zi Zi--Like" fill="currentColor" viewBox="0 0 24 24" width="16"
-                                height="16" style="transform: rotate(180deg); margin-right: 5px;"><path
-                                d="M14.445 9h5.387s2.997.154 1.95 3.669c-.168.51-2.346 6.911-2.346 6.911s-.763 1.416-2.86 1.416H8.989c-1.498 0-2.005-.896-1.989-2v-7.998c0-.987.336-2.032 1.114-2.639 4.45-3.773 3.436-4.597 4.45-5.83.985-1.13 3.2-.5 3.037 2.362C15.201 7.397 14.445 9 14.445 9zM3 9h2a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V10a1 1 0 0 1 1-1z"
-                                fill-rule="evenodd"></path></svg></span>踩
-                        </button>
-                        <button type="button" class="Button CommentItemV2-hoverBtn Button--plain"><span
-                                style="display: inline-flex; align-items: center;">&#8203;<svg
-                                class="Zi Zi--Report" fill="currentColor" viewBox="0 0 24 24" width="16"
-                                height="16" style="margin-right: 5px;"><path
-                                d="M19.947 3.129c-.633.136-3.927.639-5.697.385-3.133-.45-4.776-2.54-9.949-.888-.997.413-1.277 1.038-1.277 2.019L3 20.808c0 .3.101.54.304.718a.97.97 0 0 0 .73.304c.275 0 .519-.102.73-.304.202-.179.304-.418.304-.718v-6.58c4.533-1.235 8.047.668 8.562.864 2.343.893 5.542.008 6.774-.657.397-.178.596-.474.596-.887V3.964c0-.599-.42-.972-1.053-.835z"
-                                fill-rule="evenodd"></path></svg></span>举报
-                        </button>-->
                     </div>
                 </div>
             </div>
