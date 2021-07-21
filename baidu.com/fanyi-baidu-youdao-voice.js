@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name         添加有道发音
 // @namespace    https://github.com/nameldk/user-script
-// @version      0.2.1
+// @version      0.2.2
 // @description  百度翻译页面添加有道发音
 // @author       nameldk
 // @match        https://fanyi.baidu.com/
 // @grant        none
+// @note         2021.07.21  v0.2.2 修复不能获取最新输入内容的问题
 // @note         2021.05.28  v0.2.1 添加加载中效果
 // @note         2021.05.27  v0.2 手机访问时添加发音
 // ==/UserScript==
@@ -15,6 +16,7 @@
     const fromMobile = navigator.userAgent.match(/Android|iPhone|iPad|iPod|Opera Mini|IEMobile/i);
     let curAudio;
     let curIcon;
+    let curText;
 
     function readText(text, elIcon) {
         if (!text || !elIcon)
@@ -28,7 +30,7 @@
         }
 
         if (curAudio) {
-            if (elIcon === curIcon) {
+            if (elIcon === curIcon && curText === text) {
                 curAudio.currentTime = 0;
                 curAudio.play();
                 return;
@@ -56,6 +58,7 @@
             audio.play();
             curAudio = audio;
             curIcon = elIcon;
+            curText = text;
         });
     }
 
@@ -86,7 +89,7 @@
     }
 
     function processPc() {
-        let style = `<style> 
+        let style = `<style>
 @-webkit-keyframes loading{0%{-webkit-transform:rotate(0deg)}
 25%{-webkit-transform:rotate(90deg)}
 50%{-webkit-transform:rotate(180deg)}
@@ -140,16 +143,23 @@ span.yd-voice.sound-load {
             let elA = document.createElement('span');
             elA.className = 'icon-sound yd-voice';
             elA.addEventListener('mouseover', () => {
-                readText(text, elA);
+                readText(getText(text), elA);
             });
             elA.addEventListener('click', () => {
-                readText(text, elA);
+                readText(getText(text), elA);
             });
             if (elNext) {
                 elParent.parentNode.insertBefore(elA, elNext);
             } else {
                 elParent.parentNode.append(elA);
             }
+        }
+
+        function getText(text) {
+            if (typeof text === 'function') {
+                return text();
+            }
+            return text;
         }
 
         queryAll('.icon-sound', document, el => {
@@ -166,13 +176,15 @@ span.yd-voice.sound-load {
             let elWrap = document.querySelector('.trans-input-wrap');
             let elInput = document.querySelector('#baidu_translate_input');
             if (elWrap.querySelector('.icon-sound') && elInput) {
-                processIcon(elWrap.querySelector('.icon-sound'), elInput.value);
+                processIcon(elWrap.querySelector('.icon-sound'), () => {
+                    return elInput.value;
+                });
             }
         }, 1000)
     }
 
     function processMobile() {
-        let style = `<style> 
+        let style = `<style>
 a.yd-voice {
     height: 24px;
     display: flex;
