@@ -6,9 +6,10 @@
 // @match       https://www.zhihu.com/question/*
 // @match       https://www.zhihu.com/zvideo/*
 // @grant       none
-// @version     1.3.0
+// @version     1.3.1
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2022.03.19  v1.3.1 处理回答加载不出来的问题，处理查看所有回答点击错误
 // @note        2022.01.29  v1.3.0 处理回答加载不出来的问题
 // @note        2021.06.24  v1.2.9 处理评论样式
 // @note        2021.06.10  v1.2.8 处理视频被误删除问题
@@ -1023,13 +1024,27 @@ function processFold(elRichContent) {
 
 function bindLoadData() {
     log('run:bindLoadData');
-    var el = document.querySelector('div.Card.ViewAllInappCard');
+    var el;
     if (inDetailPage) {
+        el = document.querySelector('.Card.ViewAll');
+        if (!el) {
+            console.warn('bindLoadData failed');
+            return;
+        }
         el.style.textAlign = "center";
-        el.innerHTML = '<a style="padding: 10px;" href="'+location.href.replace(/\/answer.+/,'')+'">查看所有回答<a>';
+        el.innerHTML = '<a class="QuestionMainAction ViewAll-QuestionMainAction" style="padding: 10px;" href="'+location.href.replace(/\/answer.+/,'')+'">查看所有回答<a>';
         return;
     }
-    el.insertAdjacentHTML('beforebegin', `<div id="my-loading" class="hide"><div class="loadingio-spinner-dual-ring-41hxycfuw5t"><div class="ldio-4crll70kj">
+    document.querySelectorAll('.Card').forEach(function (elCard) {
+        if (!el && elCard.classList && elCard.classList.length === 1) {
+            el = elCard;
+        }
+    });
+    if (!el) {
+        console.warn('bindLoadData failed');
+        return;
+    }
+    el.insertAdjacentHTML('afterend', `<div id="my-loading" class="hide"><div class="loadingio-spinner-dual-ring-41hxycfuw5t"><div class="ldio-4crll70kj">
 <div></div><div><div></div></div>
 </div></div></div>`);
 
@@ -1090,6 +1105,18 @@ function bindClickComment(elListItem) {
         return;
     let elButton = elListItem.querySelector('button.ContentItem-action.Button--withLabel');
     let elComment = elListItem.querySelector('.Comments-container');
+
+    if (!elButton) {
+        let elContentItemActions = elListItem.querySelector('.ContentItem-actions');
+        if (!elContentItemActions) {
+            console.warn('bindClickComment failed');
+            return;
+        }
+        elButton = document.createElement('span');
+        elButton.innerHTML = `<button type="button" class="Button ContentItem-action Button--plain Button--withIcon Button--withLabel"><span style="display: inline-flex; align-items: center;">&ZeroWidthSpace;<svg class="Zi Zi--Comment Button-zi" fill="currentColor" viewBox="0 0 24 24" width="1.2em" height="1.2em"><path d="M10.241 19.313a.97.97 0 0 0-.77.2 7.908 7.908 0 0 1-3.772 1.482.409.409 0 0 1-.38-.637 5.825 5.825 0 0 0 1.11-2.237.605.605 0 0 0-.227-.59A7.935 7.935 0 0 1 3 11.25C3 6.7 7.03 3 12 3s9 3.7 9 8.25-4.373 9.108-10.759 8.063z" fill-rule="evenodd"></path></svg></span> 评论 </button>`;
+        elContentItemActions.appendChild(elButton);
+    }
+
     elButton.addEventListener('click', function () {
         if (elComment) {
             elComment.classList.toggle('hide');
