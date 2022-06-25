@@ -6,9 +6,10 @@
 // @match       https://www.zhihu.com/question/*
 // @match       https://www.zhihu.com/zvideo/*
 // @grant       none
-// @version     1.3.2
+// @version     1.3.3
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2022.06.25  v1.3.3 隐藏底部按钮
 // @note        2022.03.30  v1.3.2 添加评论数量
 // @note        2022.03.19  v1.3.1 处理回答加载不出来的问题，处理查看所有回答点击错误
 // @note        2022.01.29  v1.3.0 处理回答加载不出来的问题
@@ -620,7 +621,7 @@ function addCommonStyle() {
     let style = `<style>
 .CommentsForOia, #div-gpt-ad-bannerAd,div.Card.AnswersNavWrapper div.ModalWrap, .MobileModal-backdrop,
         .MobileModal--plain.ConfirmModal,.AdBelowMoreAnswers,div.Card.HotQuestions, button.OpenInAppButton.OpenInApp,
-        .DownloadGuide-inner, .DownloadGuide{
+        .DownloadGuide-inner, .DownloadGuide, div.OpenInAppButton {
         display: none;
     }
 .CommentItemV2 {
