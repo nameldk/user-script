@@ -6,9 +6,10 @@
 // @match       https://www.zhihu.com/question/*
 // @match       https://www.zhihu.com/zvideo/*
 // @grant       none
-// @version     1.3.3
+// @version     1.3.4
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2022.06.26  v1.3.4 隐藏推荐；修复链接打开失败的问题。
 // @note        2022.06.25  v1.3.3 隐藏底部按钮
 // @note        2022.03.30  v1.3.2 添加评论数量
 // @note        2022.03.19  v1.3.1 处理回答加载不出来的问题，处理查看所有回答点击错误
@@ -621,7 +622,7 @@ function addCommonStyle() {
     let style = `<style>
 .CommentsForOia, #div-gpt-ad-bannerAd,div.Card.AnswersNavWrapper div.ModalWrap, .MobileModal-backdrop,
         .MobileModal--plain.ConfirmModal,.AdBelowMoreAnswers,div.Card.HotQuestions, button.OpenInAppButton.OpenInApp,
-        .DownloadGuide-inner, .DownloadGuide, div.OpenInAppButton {
+        .DownloadGuide-inner, .DownloadGuide, div.OpenInAppButton, div.Card.RelatedReadings {
         display: none;
     }
 .CommentItemV2 {
@@ -1328,7 +1329,7 @@ function processAHref(elAncestor) {
             }
         );
         forEachArray(
-            elAncestor.querySelectorAll('a[href^="https://www.zhihu.com"]'),
+            elAncestor.querySelectorAll('a[href^="https://"],a[href^="http://"]'),
             ele => stopPropagation(ele)
         )
     }
