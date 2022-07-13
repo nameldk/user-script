@@ -6,9 +6,10 @@
 // @match       https://www.zhihu.com/question/*
 // @match       https://www.zhihu.com/zvideo/*
 // @grant       none
-// @version     1.3.4
+// @version     1.3.5
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2022.07.13  v1.3.5 处理部分答案重复显示的问题。
 // @note        2022.06.26  v1.3.4 隐藏推荐；修复链接打开失败的问题。
 // @note        2022.06.25  v1.3.3 隐藏底部按钮
 // @note        2022.03.30  v1.3.2 添加评论数量
@@ -35,10 +36,11 @@ const fromMobile = navigator.userAgent.match(/Android|iPhone|iPad|iPod|Opera Min
 var offset = 0;
 var limit = 5;
 var is_end = 0;
+var is_loading_answer = 0;
+var is_loading_comment = 0;
+var load_answer_id_map = {};
 var elList = null;
 var elLoading = null;
-var loadAnswerInterval = null;
-var loadCommentInterval = null;
 var viewportElCheckList = [];
 var debug = 0;
 var log = debug ? console.log : function(){};
@@ -947,12 +949,14 @@ function getListWrap() {
 }
 
 function loadAnswer() {
-    if (is_end) {
+    if (is_end || is_loading_answer) {
         return;
     }
     if (elLoading) {
         elLoading.classList.remove('hide');
     }
+    is_loading_answer = 1;
+    log('to load', offset, limit);
     loadContent(offset, limit).then(function (data) {
         if (elLoading) {
             elLoading.classList.add('hide');
@@ -965,13 +969,18 @@ function loadAnswer() {
         let elListWrap = getListWrap();
         if (elListWrap) {
             data.data.forEach(function (item) {
-                let elListItemWrap = document.createElement('div');
-                elListItemWrap.innerHTML = genAnswerItemHtml(item);
-                elListWrap.insertAdjacentElement("beforeend", elListItemWrap);
-                processFold(elListItemWrap.querySelector('.RichContent'));
-                bindClickComment(elListItemWrap);
-                processAHref(elListItemWrap);
-                processVideo(elListItemWrap);
+                if (!load_answer_id_map[item.id]) {
+                    load_answer_id_map[item.id] = 1;
+                    let elListItemWrap = document.createElement('div');
+                    elListItemWrap.innerHTML = genAnswerItemHtml(item);
+                    elListWrap.insertAdjacentElement("beforeend", elListItemWrap);
+                    processFold(elListItemWrap.querySelector('.RichContent'));
+                    bindClickComment(elListItemWrap);
+                    processAHref(elListItemWrap);
+                    processVideo(elListItemWrap);
+                } else {
+                    log('duplicate answer', item.id)
+                }
             });
             if (is_end) {
                 let html = '<div style="text-align: center; padding: 10px;">全部回答已加载完成...</div>'
@@ -980,6 +989,11 @@ function loadAnswer() {
         } else {
             console.warn('elListWrap empty');
         }
+    }).catch(function (err) {
+        console.error('load failed', err)
+    }).then(function () {
+        is_loading_answer = 0;
+        log('loading finish')
     })
 }
 
@@ -1058,14 +1072,7 @@ function bindLoadData() {
         }
         if ((window.innerHeight + window.scrollY + 100) >= document.body.offsetHeight) {
             log('reach bottom');
-            if (loadAnswerInterval) {
-                clearTimeout(loadAnswerInterval);
-            }
-
-            loadAnswerInterval = setTimeout(function(){
-                log('to load', offset, limit);
-                loadAnswer();
-            }, 100);
+            loadAnswer();
         }
     };
 }
@@ -1282,7 +1289,7 @@ function genCommentLoding() {
 }
 
 function processComment(elComment, elCommentWrap) {
-    if (!elComment || !elCommentWrap) {
+    if (!elComment || !elCommentWrap || is_loading_comment) {
         return;
     }
     let offset = +elComment.dataset.offset,
@@ -1290,31 +1297,32 @@ function processComment(elComment, elCommentWrap) {
         isReverse = +elComment.dataset.isReverse,
         isEnd = +elComment.dataset.isEnd
     ;
-    if (loadCommentInterval) {
-        clearTimeout(loadCommentInterval);
-    }
     if (!answerId || isEnd) {
         return;
     }
 
-    loadCommentInterval = setTimeout(function() {
-        log('beginLoadComment', offset);
-        var elLoading = genCommentLoding();
-        elCommentWrap.appendChild(elLoading);
-        loadCommentData(answerId, offset, isReverse).then(function (json) {
-            log('getCommentData', offset);
-            elComment.dataset.offset = offset + 10;
-            elCommentWrap.removeChild(elLoading);
-            elLoading = null;
-            let html = genCommentHtml(json.data);
-            if (json.paging.is_end) {
-                elComment.dataset.isEnd = "1";
-                html += '<div style="text-align: center; padding: 10px;">全部评论已加载完成...</div>'
-            }
-            elCommentWrap.insertAdjacentHTML('beforeend', html);
-            processAHref(elCommentWrap);
-        });
-    }, 100);
+    log('beginLoadComment', offset);
+    is_loading_comment = 1;
+    let elLoading = genCommentLoding();
+    elCommentWrap.appendChild(elLoading);
+    loadCommentData(answerId, offset, isReverse).then(function (json) {
+        log('getCommentData', offset);
+        elComment.dataset.offset = offset + 10;
+        elCommentWrap.removeChild(elLoading);
+        elLoading = null;
+        let html = genCommentHtml(json.data);
+        if (json.paging.is_end) {
+            elComment.dataset.isEnd = "1";
+            html += '<div style="text-align: center; padding: 10px;">全部评论已加载完成...</div>'
+        }
+        elCommentWrap.insertAdjacentHTML('beforeend', html);
+        processAHref(elCommentWrap);
+    }).catch(function (err) {
+        console.warn('load comment failed', err);
+    }).then(function () {
+        is_loading_comment = 0;
+        elLoading = null;
+    });
 }
 
 function processAHref(elAncestor) {
@@ -1506,7 +1514,21 @@ function processDetail() {
         removeAds();
         removeBlock();
         processAHref(document);
-        offset += document.querySelectorAll('.List-item').length;
+        let list_item = document.querySelectorAll('.List-item');
+        offset += list_item.length;
+        forEachArray(list_item, function (ele) {
+            let zop = ele.dataset && ele.dataset.zop;
+            if (zop) {
+                try {
+                    let t = JSON.parse(zop);
+                    if (t.itemId) {
+                        load_answer_id_map[t.itemId] = 1;
+                    }
+                } catch (e) {
+                    console.error(e)
+                }
+            }
+        });
         bindLoadData();
     }, 1000);
 }
