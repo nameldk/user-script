@@ -6,9 +6,10 @@
 // @match       https://www.zhihu.com/question/*
 // @match       https://www.zhihu.com/zvideo/*
 // @grant       none
-// @version     1.3.6
+// @version     1.3.7
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2022.08.05  v1.3.7 处理页面回答折叠未显示的问题。
 // @note        2022.07.17  v1.3.6 处理LinkCard点击无效的问题。添加IP信息。显示评论表情。
 // @note        2022.07.13  v1.3.5 处理部分答案重复显示的问题。
 // @note        2022.06.26  v1.3.4 隐藏推荐；修复链接打开失败的问题。
@@ -46,7 +47,11 @@ var elLoading = null;
 var viewportElCheckList = [];
 var debug = 0;
 var init_done = 0;
-var log = debug ? console.log : function(){};
+var _log_counter = 0;
+var log = debug ? function () {
+    return console.log.apply(console, ['mylog', ++_log_counter, new Date().toLocaleTimeString().substring(0,8)
+    ].concat([].slice.call(arguments)));
+} : function(){};
 
 
 function forEachArray(arrayLike, cb) {
@@ -697,12 +702,13 @@ function skipOpenApp() {
     // .RichContent.is-collapsed.RichContent--unescapable
     Array.prototype.forEach.call(document.querySelectorAll('.ContentItem.AnswerItem'), function (ele) {
         let elRichContentInner = ele.querySelector('.RichContent-inner');
+        let elRichContent = ele.querySelector('.RichContent');
         let button = ele.querySelector('button');
 
         if (button) {
             button.style.display = 'none';
         }
-        if (elRichContentInner) {
+        if (elRichContentInner && elRichContent) {
             let elMTimeMeta = ele.querySelector('meta[itemprop="dateModified"]');
             let elCTimeMeta = ele.querySelector('meta[itemprop="dateCreated"]');
 
@@ -730,15 +736,15 @@ function skipOpenApp() {
             }
 
             setTimeout(function () {
-                if (!elRichContentInner.parentElement || !elRichContentInner.parentElement.classList.contains('is-collapsed')) {
+                if (!elRichContent.classList.contains('is-collapsed')) {
                     return;
                 }
                 log('process:is-collapsed');
                 ele.classList.add('my-fold');
                 elRichContentInner.insertAdjacentHTML('afterend', `<span class="my-more-btn">↓展开↓</span><span class="my-less-btn">↑收起↑</span>`);
-                elRichContentInner.parentElement.classList.remove('is-collapsed');
+                elRichContent.classList.remove('is-collapsed');
                 elRichContentInner.setAttribute("style", "");
-                processFold(elRichContentInner.parentElement);
+                processFold(elRichContent);
             }, 1000);
 
             forEachArray(elRichContentInner.querySelectorAll('.GifPlayer'), el => {
@@ -758,6 +764,8 @@ function skipOpenApp() {
                 eleVoteButton.style = null;
             }
 
+        } else {
+            log('RichContent not found')
         }
 
 
@@ -961,7 +969,7 @@ function genVideoHtml(videoId) {
 }
 
 function processVideo(elAncestor) {
-    if (elAncestor) {
+    if (elAncestor && elAncestor.querySelectorAll) {
         forEachArray(elAncestor.querySelectorAll('a.video-box'), el => {
             let videoId = el.dataset.lensId;
             if (videoId) {
@@ -1366,11 +1374,11 @@ function processComment(elComment, elCommentWrap) {
 
 function processAHref(elAncestor) {
     log('run:processAHref');
-    if (elAncestor) {
+    if (elAncestor && elAncestor.querySelectorAll) {
         forEachArray(
             elAncestor.querySelectorAll('a[href^="https://link.zhihu.com/"]'),
             ele => {
-                log(ele.getAttribute('href'));
+                log('a_href', ele.getAttribute('href'));
                 ele.setAttribute('href', decodeURIComponent(ele.getAttribute('href').replace('https://link.zhihu.com/?target=', '')));
                 ele.setAttribute('target', '_blank');
                 stopPropagation(ele);
@@ -1547,7 +1555,7 @@ function processHomePage() {
     }
 
     function processBtnAll(targetNode) {
-        if (targetNode) {
+        if (targetNode && targetNode.querySelectorAll) {
             forEachArray(
                 targetNode.querySelectorAll('button.ContentItem-more'),
                 el => processBtn(el)
