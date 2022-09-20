@@ -6,9 +6,10 @@
 // @match       https://www.zhihu.com/question/*
 // @match       https://www.zhihu.com/zvideo/*
 // @grant       none
-// @version     1.3.7
+// @version     1.3.8
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2022.09.20  v1.3.8 隐藏VIP推荐。
 // @note        2022.08.05  v1.3.7 处理页面回答折叠未显示的问题。
 // @note        2022.07.17  v1.3.6 处理LinkCard点击无效的问题。添加IP信息。显示评论表情。
 // @note        2022.07.13  v1.3.5 处理部分答案重复显示的问题。
@@ -796,6 +797,7 @@ function removeBlock() {
     removeBySelector('.MobileModal--plain.ConfirmModal');
     removeBySelector('.AdBelowMoreAnswers');
     removeBySelector('div.Card.HotQuestions');
+    removeBySelector('div.KfeCollection-VipRecommendCard');
     hideBySelector('div.ModalWrap');
 
     let counter = 3;
