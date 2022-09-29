@@ -6,9 +6,10 @@
 // @match       https://www.zhihu.com/question/*
 // @match       https://www.zhihu.com/zvideo/*
 // @grant       none
-// @version     1.3.8
+// @version     1.4.0
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2022.09.29  v1.4.0 获取回答使用新接口。
 // @note        2022.09.20  v1.3.8 隐藏VIP推荐。
 // @note        2022.08.05  v1.3.7 处理页面回答折叠未显示的问题。
 // @note        2022.07.17  v1.3.6 处理LinkCard点击无效的问题。添加IP信息。显示评论表情。
@@ -36,8 +37,6 @@ const inHomePage = location.pathname === '/';
 const inZvideo = location.pathname.indexOf('/zvideo/') > -1;
 const fromMobile = navigator.userAgent.match(/Android|iPhone|iPod|Opera Mini|IEMobile/i);
 
-var offset = 0;
-var limit = 5;
 var is_end = 0;
 var is_loading_answer = 0;
 var is_loading_comment = 0;
@@ -48,6 +47,7 @@ var elLoading = null;
 var viewportElCheckList = [];
 var debug = 0;
 var init_done = 0;
+var answer_next_url = null;
 var _log_counter = 0;
 var log = debug ? function () {
     return console.log.apply(console, ['mylog', ++_log_counter, new Date().toLocaleTimeString().substring(0,8)
@@ -716,7 +716,7 @@ function skipOpenApp() {
             if (elMTimeMeta && elCTimeMeta) {
                 let mTime = elMTimeMeta.getAttribute('content').toString().split('T')[0];
                 let cTime = elCTimeMeta.getAttribute('content').toString().split('T')[0];
-                let elATime = elRichContentInner.parentElement.querySelector('.ContentItem-time');
+                let elATime = ele.querySelector('.ContentItem-time');
                 let url = elCTimeMeta.previousElementSibling.getAttribute('content');
                 let mHtml = '';
 
@@ -760,7 +760,7 @@ function skipOpenApp() {
                 });
             });
 
-            let eleVoteButton = elRichContentInner.parentElement.querySelector('.VoteButton--up');
+            let eleVoteButton = ele.querySelector('.VoteButton--up');
             if (eleVoteButton) {
                 eleVoteButton.style = null;
             }
@@ -823,18 +823,14 @@ function processContent(content) {
     return content.replace(r, '<img src="$2"$1/>');
 }
 
-function loadContent(offset, limit) {
-    var path = `/api/v4/questions/${questionNumber}/answers?include=data%5B%2A%5D.is_normal%2Cadmin_closed_comment%2Creward_info%2Cis_collapsed%2Cannotation_action%2Cannotation_detail%2Ccollapse_reason%2Cis_sticky%2Ccollapsed_by%2Csuggest_edit%2Ccomment_count%2Ccan_comment%2Ccontent%2Ceditable_content%2Cattachment%2Cvoteup_count%2Creshipment_settings%2Ccomment_permission%2Ccreated_time%2Cupdated_time%2Creview_info%2Crelevant_info%2Cquestion%2Cexcerpt%2Cis_labeled%2Cpaid_info%2Cpaid_info_content%2Crelationship.is_authorized%2Cis_author%2Cvoting%2Cis_thanked%2Cis_nothelp%2Cis_recognized%3Bdata%5B%2A%5D.mark_infos%5B%2A%5D.url%3Bdata%5B%2A%5D.author.follower_count%2Cvip_info%2Cbadge%5B%2A%5D.topics%3Bdata%5B%2A%5D.settings.table_of_content.enabled&limit=${limit}&offset=${offset}&platform=desktop&sort_by=default`;
-
-    var url = 'https://www.zhihu.com' + path;
-
+function loadContent(url) {
     let myHeaders = new Headers();
-    let s = zhihu().buildStr(path),
-        md5 = zhihu().md5(s),
-        s1 = zhihu().enc(md5);
+    // let s = zhihu().buildStr(path),
+    //     md5 = zhihu().md5(s),
+    //     s1 = zhihu().enc(md5);
 
-    myHeaders.append('x-zse-93', '101_3_2.0');
-    myHeaders.append('x-zse-96', "2.0_" + s1);
+    // myHeaders.append('x-zse-93', '101_3_2.0');
+    // myHeaders.append('x-zse-96', "2.0_" + s1);
 
     const myInit = {
         method: 'GET',
@@ -1002,31 +998,54 @@ function loadAnswer() {
         elLoading.classList.remove('hide');
     }
     is_loading_answer = 1;
-    log('to load', offset, limit);
-    loadContent(offset, limit).then(function (data) {
+
+    if (answer_next_url === null) {
+        let elInit = document.querySelector('#js-initialData');
+        if (!elInit) {
+            return console.error('js-initialData not found.')
+        }
+
+        try {
+            let jsonInit = JSON.parse(elInit.innerText);
+            let answer = jsonInit.initialState.question.answers[questionNumber];
+            answer_next_url = answer['next'];
+        } catch (e) {
+            return console.error(e);
+        }
+    }
+
+    loadContent(answer_next_url).then(function (data) {
+        if (!answer_next_url) {
+            console.error('next_url empty');
+            return
+        }
         if (elLoading) {
             elLoading.classList.add('hide');
         }
-        log('get data:', offset, limit);
+        log('get data:', answer_next_url);
         if (data.paging.is_end) {
             is_end = 1;
         }
-        offset += data.data.length;
+        answer_next_url = data.paging.next;
         let elListWrap = getListWrap();
         if (elListWrap) {
             processLinkCard(elListWrap);
             data.data.forEach(function (item) {
-                if (!load_answer_id_map[item.id]) {
-                    load_answer_id_map[item.id] = 1;
+                if (item.target_type !== 'answer') {
+                    return log('not_answer:', item);
+                }
+
+                if (!load_answer_id_map[item.target.id]) {
+                    load_answer_id_map[item.target.id] = 1;
                     let elListItemWrap = document.createElement('div');
-                    elListItemWrap.innerHTML = genAnswerItemHtml(item);
+                    elListItemWrap.innerHTML = genAnswerItemHtml(item.target);
                     elListWrap.insertAdjacentElement("beforeend", elListItemWrap);
                     processFold(elListItemWrap.querySelector('.RichContent'));
                     bindClickComment(elListItemWrap);
                     processAHref(elListItemWrap);
                     processVideo(elListItemWrap);
                 } else {
-                    log('duplicate answer', item.id)
+                    log('duplicate answer', item.target.id)
                 }
             });
             if (is_end) {
@@ -1579,7 +1598,6 @@ function processDetail() {
         removeBlock();
         processAHref(document);
         let list_item = document.querySelectorAll('.List-item');
-        offset += list_item.length;
         forEachArray(list_item, function (ele) {
             let ele1 = ele.querySelector('.AnswerItem');
             let zop = ele1 && ele1.dataset && ele1.dataset.zop;
