@@ -6,9 +6,10 @@
 // @match       https://www.zhihu.com/question/*
 // @match       https://www.zhihu.com/zvideo/*
 // @grant       none
-// @version     1.4.0
+// @version     1.4.1
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2022.10.30  v1.4.1 避免页面切换时直接替换页面内容时绑定的事件消息，所以点击标题链接时重新加载页面(简单粗暴)。
 // @note        2022.09.29  v1.4.0 获取回答使用新接口。
 // @note        2022.09.20  v1.3.8 隐藏VIP推荐。
 // @note        2022.08.05  v1.3.7 处理页面回答折叠未显示的问题。
@@ -1624,6 +1625,13 @@ function processZvideo() {
     }, 0);
 }
 
+function processCommon() {
+    let elA = document.querySelector('.QuestionHeader-title a');
+    if (elA) {
+        stopPropagation(elA)
+    }
+}
+
 
 function init() {
     if (init_done) {
@@ -1644,6 +1652,7 @@ function init() {
         setTimeout(function () {
             addCommonStyle();
             processContinue();
+            processCommon();
         }, 0);
 
         setTimeout(function () {
