@@ -5,10 +5,12 @@
 // @match       https://www.zhihu.com/?*
 // @match       https://www.zhihu.com/question/*
 // @match       https://www.zhihu.com/zvideo/*
+// @match       https://zhuanlan.zhihu.com/p/*
 // @grant       none
-// @version     1.4.1
+// @version     1.4.2
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2023.03.31  v1.4.2 修改展开、收起图标。隐藏专栏悬浮按钮。
 // @note        2022.10.30  v1.4.1 避免页面切换时直接替换页面内容时绑定的事件消息，所以点击标题链接时重新加载页面(简单粗暴)。
 // @note        2022.09.29  v1.4.0 获取回答使用新接口。
 // @note        2022.09.20  v1.3.8 隐藏VIP推荐。
@@ -36,6 +38,7 @@ const questionNumber = (location.href.match(/\/question\/(\d+)/)||[])[1];
 const inDetailPage = location.href.match(/\/question\/\d+\/answer\/\d+/);
 const inHomePage = location.pathname === '/';
 const inZvideo = location.pathname.indexOf('/zvideo/') > -1;
+const inZhuanlan = location.href.match(/zhuanlan\.zhihu\.com\/p\/\d+/)
 const fromMobile = navigator.userAgent.match(/Android|iPhone|iPod|Opera Mini|IEMobile/i);
 
 var is_end = 0;
@@ -743,7 +746,7 @@ function skipOpenApp() {
                 }
                 log('process:is-collapsed');
                 ele.classList.add('my-fold');
-                elRichContentInner.insertAdjacentHTML('afterend', `<span class="my-more-btn">↓展开↓</span><span class="my-less-btn">↑收起↑</span>`);
+                elRichContentInner.insertAdjacentHTML('afterend', `<span class="my-more-btn down-img"></span><span class="my-less-btn up-img"></span>`);
                 elRichContent.classList.remove('is-collapsed');
                 elRichContentInner.setAttribute("style", "");
                 processFold(elRichContent);
@@ -901,8 +904,8 @@ function genAnswerItemHtml(data) {
             </div>
             </div>
 
-            <span class="my-more-btn">↓展开↓</span>
-            <span class="my-less-btn">↑收起↑</span>
+            <span class="my-more-btn down-img"></span>
+            <span class="my-less-btn up-img"></span>
 
             <div class="ContentItem-actions">
                 <span>
@@ -1257,7 +1260,7 @@ function addCommentWrap(elListItem, answerId) {
                 </button>
             </div>
         </div>
-        <a class="comment-fold">收起</a>
+        <a class="comment-fold up-img"></a>
         <div class="CommentListV2">
         </div>
     </div>
@@ -1455,19 +1458,33 @@ function addCss() {
     .my-unfold .my-less-btn {
         display: block;
     }
-
+    
+    .up-img {
+        background: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAMAAAAp4XiDAAAAXVBMVEUAAABDQz+GhIt6eX61tL25uMGko6u6ucKzsruzsbqtrLSnpq60sruzsbumpa2xsLmvrba0srusqrOko6qkoqqioKm7usO4tr+6ucK4tsC5t8Gkoqugn6a8u8K9vMT0mL20AAAAHXRSTlMABAQH0u0o7n95TyPIey6yoIxZNDEa8eHdx7JEF78gUdEAAAFLSURBVEjHrZOLcoIwEEVPgsUWsbZa+yb//5mNGYclG5YUxwwzh0SPd70KDpzHRVwu2UV4QX4Y7+Nlw6udGDVRIJHGW0tA5cNL3M3wSwZWBpiiYbSH7w7T8DNT9WEYhk+Qw5qxGdJ6oDAi0IYbjbi2YFRmGTFnjSGONrANydFRpVE4tuGVIR1UM8ocVbJhhJAw17U1VUfIcurGE7S5U5SsjEeaRjuqgCKjiS/ynDmLxj4ZDnah7NqY6mo0OsdJyXoqaaed6RpvZbiIsgPHUkYCb7kTl5lxRVN2YBkClePhMDuVQHXwAedgZAjyDo682hmC6e/TT5S9afhpB1/8BmOqHJzC+FTwkm6CytAYv88GkhPej2IY4LwNQ+gvRgM/J8Swwa4D0jahbjgPyD+5YqBQMwQ3G6w1ItZm/N9AG6uAj1wp3m641SWTny7iD6BPQB47/T0pAAAAAElFTkSuQmCC);
+        background-repeat: no-repeat;
+        background-size: 20px 20px;
+        width: 20px;
+        height: 20px;
+        display: inline-block;
+    }
+    .down-img {
+        background: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyCAMAAAAp4XiDAAAAXVBMVEUAAABDQz+GhIt6eX61tL25uMGko6u6ucKzsruzsbqtrLSnpq60sruzsbumpa2xsLmvrba0srusqrOko6qkoqqioKm7usO4tr+6ucK4tsC5t8Gkoqugn6a8u8K9vMT0mL20AAAAHXRSTlMABAQH0u0o7n95TyPIey6yoIxZNDEa8eHdx7JEF78gUdEAAAFHSURBVEjHrZXtcoIwFERPgkiLVFut/Q7v/5ilcSKY1Rtwmj9LMjmzNwvc4MA5bPHZYlotikuzpGW5n/DIalnkrLOIpR5RFwksJdzdxChlIoYM+HkekKTdUCYqOHzDIND1oW+OFIn9Wx/CM8Aq/I1+TWUTTwMQItMOEpkDJvGQ9v3wGdLzhsrwCGm80IUzs+Um8RhGhH3U83nMquKmI7xPmaJH2IGnnjCv2B5hBThoQphmUCAcQOZjVLUav8v6MgPLw58IaC4Y08NzxWdLdcvDpV9ZMpB3roQj95GqlNAMrlSVt4ucEQ9tF5kPbYnQrHutKkrWk6c+SkgAkrVUJYRkbXto1kpoyJK1EkZPrhcT0FiER4joI1mNhAMlHHwMQN+ZRC60X7u1VmVffKDE3ItPQWvrvxHMJrwZsi2y1c8iRsvTTBYdTGa/Od1AHiFyP4wAAAAASUVORK5CYII=);
+        background-repeat: no-repeat;
+        background-size: 20px 20px;
+        width: 20px;
+        height: 20px;
+        display: inline-block;
+    }
     .my-more-btn {
         float: right;
         padding: 0 10px 10px 10px;
     }
     .my-less-btn {
         position: fixed;
-        top: 80px;
+        top: 10%;
         right: 10px;
         padding: 0 10px 10px 10px;
         z-index: 2;
-        color: black;
-        text-shadow: 1px 1px 1px white;
     }
     #my-loading {
         text-align: center;
@@ -1647,6 +1664,8 @@ function init() {
             processHomePage();
         } else if (inZvideo) {
             processZvideo();
+        } else if (inZhuanlan) {
+            hideBySelector('.OpenInAppButton,.KfeCollection-VipRecommendCard')
         }
 
         setTimeout(function () {
