@@ -7,9 +7,10 @@
 // @match       https://www.zhihu.com/zvideo/*
 // @match       https://zhuanlan.zhihu.com/p/*
 // @grant       none
-// @version     1.4.2
+// @version     1.4.3
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2023.04.30  v1.4.3 修复加载状态条不显示的问题。
 // @note        2023.03.31  v1.4.2 修改展开、收起图标。隐藏专栏悬浮按钮。
 // @note        2022.10.30  v1.4.1 避免页面切换时直接替换页面内容时绑定的事件消息，所以点击标题链接时重新加载页面(简单粗暴)。
 // @note        2022.09.29  v1.4.0 获取回答使用新接口。
@@ -75,6 +76,10 @@ function removeBySelector(s) {
 
 function hideBySelector(s) {
     forEachBySelector(s, ele => ele.style.display = "none");
+}
+
+function hideByAddCss(s) {
+    addStyle(`<style>${s}{display:none;}</style>`)
 }
 
 function getElementHeight(el) {
@@ -1122,7 +1127,7 @@ function bindLoadData() {
         el.innerHTML = '<a class="QuestionMainAction ViewAll-QuestionMainAction" style="padding: 10px;" href="'+location.href.replace(/\/answer.+/,'')+'">查看所有回答<a>';
         return;
     }
-    document.querySelectorAll('.Card').forEach(function (elCard) {
+    document.querySelectorAll('.Question-main .Card').forEach(function (elCard) {
         if (!el && elCard.classList && elCard.classList.length === 1) {
             el = elCard;
         }
@@ -1665,7 +1670,7 @@ function init() {
         } else if (inZvideo) {
             processZvideo();
         } else if (inZhuanlan) {
-            hideBySelector('.OpenInAppButton,.KfeCollection-VipRecommendCard')
+            hideByAddCss('.OpenInAppButton,.KfeCollection-VipRecommendCard')
         }
 
         setTimeout(function () {
