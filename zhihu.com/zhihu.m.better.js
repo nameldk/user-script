@@ -766,7 +766,7 @@ function processChildComment(elButton) {
         });
 
         if (json.paging.is_end) {
-            html += '<div class="my-center">子回复已全部加载完成...</div>'
+            // html += '<div class="my-center">子回复已全部加载完成...</div>'
             end = 1;
         } else {
             elButton.dataset.offset = getOffsetFromUrl(json.paging.next);
@@ -928,7 +928,7 @@ function genCommentItemHtml(item, liClass) {
                 if (p1.indexOf('target=') === -1) {
                     return '<a target="_blank" '+ p1;
                 } else {
-                    return p1.replace(/target=['"][^'"]*['"]/, 'target="_blank"');
+                    return match.replace(/target=['"][^'"]*['"]/, 'target="_blank"');
                 }
             } else {
                 return match;
@@ -1251,16 +1251,16 @@ function processDetailOrList() {
         removeBlock();
         processAHref(document);
 
-        function stopImagePropagation(ele1) {
+        function stopElePropagation(ele1, selector) {
             if (ele1) {
-                forEachArray(ele1.querySelectorAll('figure img'), function (el) {
+                forEachArray(ele1.querySelectorAll(selector), function (el) {
                     stopPropagation(el)
                 })
             }
         }
 
         if (inDetailPage) {
-            stopImagePropagation(document.querySelector('.Question-main'))
+            stopElePropagation(document.querySelector('.Question-main'), 'figure img,a')
         } else {
             // list page
             let list_item = document.querySelectorAll('.List-item');
@@ -1279,7 +1279,7 @@ function processDetailOrList() {
                     }
                 }
                 processLinkCard(ele.querySelector('.RichContent'));
-                stopImagePropagation(ele1)
+                stopElePropagation(ele1, 'figure img,a')
             });
         }
         bindLoadData();
