@@ -10,7 +10,7 @@
 // @version     1.5.0
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
-// @note        2023.05.01  v1.5.0 评论使用新接口；加载子回复。
+// @note        2023.05.01  v1.5.0 评论使用新接口；加载子回复。修复点击图片导致评论按钮消失的问题。
 // @note        2023.04.30  v1.4.3 修复加载状态条不显示的问题。
 // @note        2023.03.31  v1.4.2 修改展开、收起图标。隐藏专栏悬浮按钮。
 // @note        2022.10.30  v1.4.1 避免页面切换时直接替换页面内容时绑定的事件消息，所以点击标题链接时重新加载页面(简单粗暴)。
@@ -918,10 +918,22 @@ function genCommentItemHtml(item, liClass) {
     let ip_info = item.comment_tag.filter(v => v.type === 'ip_info')[0];
     let author_top = item.comment_tag.filter(v => v.type === 'author_top')[0];
     let dot = ' · ';
-    let address_text = ip_info && ip_info['text'] ? ip_info['text'].replace('IP 属地', '').replace('未知', '') + dot : '';
+    let address_text = ip_info && ip_info['text'] ? ip_info['text']
+        .replace('IP 属地', '').replace('未知', '') + dot : '';
     let hot = item.hot ? `<span>${dot}热</span>` : '';
     let pin = author_top ? `<span>${dot}顶</span>` : '';
-    let content = item.content.replace(/\[.{1,8}?\]/g, getEmojiImg).replace(/(>\s*查看图片\s*<\/a>)/, ' target="_blank"$1')
+    let content = item.content.replace(/\[.{1,8}?\]/g, getEmojiImg)
+        .replace(/<a([^<>]+?>)/g, function (match, p1) {
+            if (match.indexOf('href') > -1) { // open in new tab
+                if (p1.indexOf('target=') === -1) {
+                    return '<a target="_blank" '+ p1;
+                } else {
+                    return p1.replace(/target=['"][^'"]*['"]/, 'target="_blank"');
+                }
+            } else {
+                return match;
+            }
+        });
     var html = `<li class="NestComment--${liClass}">
         <div class="CommentItemV2">
             <div>
@@ -1228,7 +1240,7 @@ function processHomePage() {
     observerAddNodes(document.querySelector('.TopstoryMain'), el => processBtnAll(el))
 }
 
-function processDetail() {
+function processDetailOrList() {
     setTimeout(function () {
         addCss();
         skipOpenApp();
@@ -1238,23 +1250,38 @@ function processDetail() {
         removeAds();
         removeBlock();
         processAHref(document);
-        let list_item = document.querySelectorAll('.List-item');
-        forEachArray(list_item, function (ele) {
-            let ele1 = ele.querySelector('.AnswerItem');
-            let zop = ele1 && ele1.dataset && ele1.dataset.zop;
-            if (zop) {
-                try {
-                    let t = JSON.parse(zop);
-                    log('answer_id', t.itemId);
-                    if (t.itemId) {
-                        load_answer_id_map[t.itemId] = 1;
-                    }
-                } catch (e) {
-                    console.error(e)
-                }
+
+        function stopImagePropagation(ele1) {
+            if (ele1) {
+                forEachArray(ele1.querySelectorAll('figure img'), function (el) {
+                    stopPropagation(el)
+                })
             }
-            processLinkCard(ele.querySelector('.RichContent'));
-        });
+        }
+
+        if (inDetailPage) {
+            stopImagePropagation(document.querySelector('.Question-main'))
+        } else {
+            // list page
+            let list_item = document.querySelectorAll('.List-item');
+            forEachArray(list_item, function (ele) {
+                let ele1 = ele.querySelector('.AnswerItem');
+                let zop = ele1 && ele1.dataset && ele1.dataset.zop;
+                if (zop) {
+                    try {
+                        let t = JSON.parse(zop);
+                        log('answer_id', t.itemId);
+                        if (t.itemId) {
+                            load_answer_id_map[t.itemId] = 1;
+                        }
+                    } catch (e) {
+                        console.error(e)
+                    }
+                }
+                processLinkCard(ele.querySelector('.RichContent'));
+                stopImagePropagation(ele1)
+            });
+        }
         bindLoadData();
     }, 0);
 }
@@ -1282,7 +1309,7 @@ function init() {
     // init
     if (fromMobile) {
         if (questionNumber || inDetailPage) {
-            processDetail();
+            processDetailOrList();
         } else if (inHomePage) {
             processHomePage();
         } else if (inZvideo) {
