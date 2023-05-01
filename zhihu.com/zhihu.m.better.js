@@ -1179,9 +1179,9 @@ function loadCommentData(answerId, offset, isReverse) {
     if (!answerId) {
         return;
     }
-    let url = `https://www.zhihu.com/api/v4/answers/${answerId}/root_comments?limit=10&offset=${offset}&order=normal&status=open`;
+    let url = `https://www.zhihu.com/api/v4/comment_v5/answers/${answerId}/root_comment?order_by=score&limit=20&offset=${offset}`;
     if (isReverse)
-        url = `https://www.zhihu.com/api/v4/answers/${answerId}/comments?limit=10&offset=${offset}&order=reverse&status=open`;
+        url = `https://www.zhihu.com/api/v4/comment_v5/answers/${answerId}/root_comment?order_by=ts&limit=20&offset=${offset}`;
     return fetch(url).then(response => response.json());
 }
 
@@ -1216,7 +1216,7 @@ function bindClickComment(elListItem) {
             let elCommentFold = elComment.querySelector('a.comment-fold');
 
             elComment.dataset.answerId = answerId;
-            elComment.dataset.offset = "0";
+            elComment.dataset.offset = "";
 
             processComment(elComment, elCommentWrap);
 
@@ -1234,7 +1234,7 @@ function bindClickComment(elListItem) {
                     elSwitchBtn.innerText = '切换为时间排序';
                     elComment.dataset.isReverse = "0";
                 }
-                elComment.dataset.offset = "0";
+                elComment.dataset.offset = "";
                 elComment.dataset.isEnd = "0";
                 elCommentWrap.innerHTML = '';
                 processComment(elComment, elCommentWrap);
@@ -1302,10 +1302,12 @@ function genCommentItemHtml(item, liClass) {
 <span class="CommentItemV2-reply">回复</span>
 <span class="UserLink">
     <a class="UserLink-link" data-za-detail-view-element_name="User" target="_blank"
-    href="//www.zhihu.com/people/${item.reply_to_author.member.url_token}">${item.reply_to_author.member.name}</a>
+    href="//www.zhihu.com/people/${item.reply_to_author.url_token}">${item.reply_to_author.name}</a>
 </span>`;
     }
-    let address_text = item['address_text'] ? item['address_text'].replace('IP 属地', '').replace('未知', '') + ' ' : '';
+    let ip_info = item.comment_tag.filter(v => v.type === 'ip_info')[0];
+    let address_text = ip_info && ip_info['text'] ? ip_info['text'].replace('IP 属地', '').replace('未知', '') + ' ' : '';
+    let hot = item.hot ? '<span> · 热</span>' : '';
     let content = item.content.replace(/\[.{1,8}?\]/g, getEmojiImg);
     var html = `<li class="NestComment--${liClass}">
         <div class="CommentItemV2">
@@ -1313,20 +1315,20 @@ function genCommentItemHtml(item, liClass) {
                 <div class="CommentItemV2-meta">
                     <span class="UserLink CommentItemV2-avatar">
                         <a class="UserLink-link" data-za-detail-view-element_name="User" target="_blank"
-                           href="//www.zhihu.com/people/${item.author.member.url_token}">
+                           href="//www.zhihu.com/people/${item.author.url_token}">
                             <img class="Avatar UserLink-avatar"
                                  width="24" height="24"
-                                 src="${formatUrl(item.author.member.avatar_url_template, 's')}"
-                                 srcset="${formatUrl(item.author.member.avatar_url_template, 'xs')} 2x"
-                                 alt="${item.author.member.name}">
+                                 src="${formatUrl(item.author.avatar_url_template, 's')}"
+                                 srcset="${formatUrl(item.author.avatar_url_template, 'xs')} 2x"
+                                 alt="${item.author.name}">
                         </a>
                     </span>
                     <span class="UserLink">
                         <a class="UserLink-link" data-za-detail-view-element_name="User"
-                           target="_blank" href="//www.zhihu.com/people/${item.author.member.url_token}">${item.author.member.name}
+                           target="_blank" href="//www.zhihu.com/people/${item.author.url_token}">${item.author.name}
                         </a>
                     </span>${replyHtml}
-                    <span class="CommentItemV2-time">${address_text}${getDate(item.created_time)}</span>
+                    <span class="CommentItemV2-time">${address_text}${getDate(item.created_time)}${hot}</span>
                 </div>
                 <div class="CommentItemV2-metaSibling">
                     <div class="CommentRichText CommentItemV2-content">
@@ -1338,7 +1340,7 @@ function genCommentItemHtml(item, liClass) {
                                 class="Zi Zi--Like" fill="currentColor" viewBox="0 0 24 24" width="16"
                                 height="16" style="margin-right: 5px;"><path
                                 d="M14.445 9h5.387s2.997.154 1.95 3.669c-.168.51-2.346 6.911-2.346 6.911s-.763 1.416-2.86 1.416H8.989c-1.498 0-2.005-.896-1.989-2v-7.998c0-.987.336-2.032 1.114-2.639 4.45-3.773 3.436-4.597 4.45-5.83.985-1.13 3.2-.5 3.037 2.362C15.201 7.397 14.445 9 14.445 9zM3 9h2a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V10a1 1 0 0 1 1-1z"
-                                fill-rule="evenodd"></path></svg></span>${item.vote_count}
+                                fill-rule="evenodd"></path></svg></span>${item.like_count}
                         </button>
                     </div>
                 </div>
@@ -1369,7 +1371,7 @@ function processComment(elComment, elCommentWrap) {
     if (!elComment || !elCommentWrap || is_loading_comment) {
         return;
     }
-    let offset = +elComment.dataset.offset,
+    let offset = elComment.dataset.offset,
         answerId = elComment.dataset.answerId,
         isReverse = +elComment.dataset.isReverse,
         isEnd = +elComment.dataset.isEnd
@@ -1384,7 +1386,8 @@ function processComment(elComment, elCommentWrap) {
     elCommentWrap.appendChild(elLoading);
     loadCommentData(answerId, offset, isReverse).then(function (json) {
         log('getCommentData', offset);
-        elComment.dataset.offset = offset + 10;
+        let m = json.paging.next.toString().match(/offset=(\w+)&?/);
+        elComment.dataset.offset = m ? m[1] : '';
         elCommentWrap.removeChild(elLoading);
         elLoading = null;
         let html = genCommentHtml(json.data);
