@@ -7,9 +7,10 @@
 // @match       https://www.zhihu.com/zvideo/*
 // @match       https://zhuanlan.zhihu.com/p/*
 // @grant       none
-// @version     1.5.0
+// @version     1.5.1
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2023.05.02  v1.5.1 调整回复样式；自动隐藏回复收起按钮。
 // @note        2023.05.01  v1.5.0 评论使用新接口；加载子回复。修复点击图片导致评论按钮消失的问题。
 // @note        2023.04.30  v1.4.3 修复加载状态条不显示的问题。
 // @note        2023.03.31  v1.4.2 修改展开、收起图标。隐藏专栏悬浮按钮。
@@ -194,6 +195,20 @@ function makeEmojiMap() {
     });
 }
 
+function debounce(fn, delay) {
+    let timer
+    return function () {
+        const context = this;
+        const args = arguments;
+        if (timer) {
+            clearTimeout(timer)
+        }
+        timer = setTimeout(function () {
+            fn.apply(context, args)
+        }, delay);
+    };
+}
+
 // ---biz---
 
 
@@ -222,16 +237,14 @@ function addCommonStyle() {
     padding: 10px 5px;
     font-size: 15px
 }
+.CommentItemV2-footer {
+    box-sizing: border-box;
+    display: flex;
+}
 .CommentItemV2-time {
-    float: right;
-    font-size: 14px;
+    font-size: 13px;
     color: #8590a6;
-}
-.CommentItemV2-avatar {
-    margin-right: 8px;
-}
-.CommentItemV2-metaSibling {
-    padding-left: 33px;
+    flex: 1 1 auto;
 }
 .CommentItemV2-content {
     margin-bottom: 6px;
@@ -669,7 +682,7 @@ function bindLoadData() {
             return;
         }
         el.style.textAlign = "center";
-        el.innerHTML = '<a class="QuestionMainAction ViewAll-QuestionMainAction" style="padding: 10px;" href="'+location.href.replace(/\/answer.+/,'')+'">查看所有回答<a>';
+        el.innerHTML = '<a class="QuestionMainAction ViewAll-QuestionMainAction" href="'+location.href.replace(/\/answer.+/,'')+'">查看所有回答<a>';
         return;
     }
     document.querySelectorAll('.Question-main .Card').forEach(function (elCard) {
@@ -750,13 +763,14 @@ function processChildComment(elButton) {
         skipIds = elButton.dataset.skipIds.toString().split(','),
         offset = elButton.dataset.offset || '',
         loading = elButton.dataset.loading || '',
-        end = 0;
+        end = 0,
+        loadingTimer;
 
     if (elButton.classList.contains('hide')) {
         return;
     }
     elButton.classList.add('hide');
-    elLoading.classList.remove('hide');
+    loadingTimer = setTimeout(() => elLoading.classList.remove('hide'), 500);
     loadChildCommentData(rootId, offset).then(function (json) {
         let html = '';
         json.data.forEach(function (v) {
@@ -774,6 +788,7 @@ function processChildComment(elButton) {
 
         elWrap.insertAdjacentHTML('beforeend', html)
     }).finally(function () {
+        loadingTimer && clearTimeout(loadingTimer);
         elLoading.classList.add('hide');
         if (!end) {
             elButton.classList.remove('hide');
@@ -800,9 +815,31 @@ function bindClickComment(elListItem) {
         elContentItemActions.appendChild(elButton);
     }
 
+    let fnFoldToggle = debounce(function () {
+        let elCommentWrap = elButton.elCommentWrap,
+            elCommentFold = elButton.elCommentFold;
+        if (!elCommentWrap || !elCommentFold) {
+            return
+        }
+        let rect = elCommentWrap.getBoundingClientRect()
+        if (rect.top > -200 && rect.top < 600) {
+            elCommentFold.classList.remove('hide')
+        } else {
+            elCommentFold.classList.add('hide')
+        }
+    }, 100);
+
     elButton.addEventListener('click', function () {
+        let bindFold = () => document.addEventListener('scroll', fnFoldToggle, false);
+        let unbindFold = () => document.removeEventListener('scroll', fnFoldToggle, false);
+
         if (elComment) {
             elComment.classList.toggle('hide');
+            if (elComment.classList.contains('hide')) {
+                unbindFold();
+            } else {
+                bindFold();
+            }
         } else {
             let answerId = (elListItem.querySelector('.ContentItem-meta ~ meta[itemprop="url"]').getAttribute('content').match(/\/answer\/(\d+)/) || [])[1];
             elComment = addCommentWrap(elListItem, answerId);
@@ -813,6 +850,9 @@ function bindClickComment(elListItem) {
 
             elComment.dataset.answerId = answerId;
             elComment.dataset.offset = "";
+
+            elButton.elCommentWrap = elCommentWrap; // bind data
+            elButton.elCommentFold = elCommentFold;
 
             processComment(elComment, elCommentWrap);
 
@@ -845,8 +885,10 @@ function bindClickComment(elListItem) {
 
             elCommentFold.addEventListener('click', function(){
                 elComment.classList.add('hide');
+                unbindFold();
             });
 
+            bindFold();
         }
     });
 }
@@ -904,15 +946,24 @@ function genCommentHtml(dataList) {
 
 function genCommentItemHtml(item, liClass) {
     var replyHtml = '';
+    let authorTagHtml = '';
+    if (item.author_tag && item.author_tag.length) {
+        if (item.author_tag.filter(v => v.type === 'content_author')[0]) {
+            authorTagHtml = '<span class="author-tag">作者</span>'
+        }
+    }
     if (item.reply_to_author) {
-        if (item.author && item.author.role === 'author') {
-            replyHtml += `<span class="CommentItemV2-roleInfo"> (作者) </span>`;
+        let tagHtml = ''
+        if (item.reply_author_tag && item.reply_author_tag.length) {
+            if (item.reply_author_tag.filter(v => v.type === 'content_author')[0]) {
+                tagHtml = `<span class="CommentItemV2-roleInfo author-tag">作者</span>`;
+            }
         }
         replyHtml += `
-<span class="CommentItemV2-reply">回复</span>
+<svg width="12" height="12" viewBox="0 0 16 16" class="ZDI ZDI--ArrowRightAlt16 css-gx7lzm" fill="currentColor"><path d="M10.727 7.48a.63.63 0 0 1 0 1.039l-4.299 2.88c-.399.268-.926-.028-.926-.519V5.12c0-.491.527-.787.926-.52l4.299 2.881Z"></path></svg>
 <span class="UserLink">
     <a class="UserLink-link" data-za-detail-view-element_name="User" target="_blank"
-    href="//www.zhihu.com/people/${item.reply_to_author.url_token}">${item.reply_to_author.name}</a>
+    href="//www.zhihu.com/people/${item.reply_to_author.url_token}">${item.reply_to_author.name}</a>${tagHtml}
 </span>`;
     }
     let ip_info = item.comment_tag.filter(v => v.type === 'ip_info')[0];
@@ -920,8 +971,8 @@ function genCommentItemHtml(item, liClass) {
     let dot = ' · ';
     let address_text = ip_info && ip_info['text'] ? ip_info['text']
         .replace('IP 属地', '').replace('未知', '') + dot : '';
-    let hot = item.hot ? `<span>${dot}热</span>` : '';
-    let pin = author_top ? `<span>${dot}顶</span>` : '';
+    let hot = item.hot ? `<span>${dot}热评</span>` : '';
+    let pin = author_top ? `<span>${dot}置顶</span>` : '';
     let content = item.content.replace(/\[.{1,8}?\]/g, getEmojiImg)
         .replace(/<a([^<>]+?>)/g, function (match, p1) {
             if (match.indexOf('href') > -1) { // open in new tab
@@ -936,30 +987,31 @@ function genCommentItemHtml(item, liClass) {
         });
     var html = `<li class="NestComment--${liClass}">
         <div class="CommentItemV2">
-            <div>
+            <div class="comment-item-wrap">
                 <div class="CommentItemV2-meta">
                     <span class="UserLink CommentItemV2-avatar">
                         <a class="UserLink-link" data-za-detail-view-element_name="User" target="_blank"
                            href="//www.zhihu.com/people/${item.author.url_token}">
                             <img class="Avatar UserLink-avatar"
-                                 width="24" height="24"
+                                 width="30" height="30"
                                  src="${formatUrl(item.author.avatar_url_template, 's')}"
                                  srcset="${formatUrl(item.author.avatar_url_template, 'xs')} 2x"
                                  alt="${item.author.name}">
                         </a>
                     </span>
+                </div>
+                <div class="CommentItemV2-metaSibling">
                     <span class="UserLink">
                         <a class="UserLink-link" data-za-detail-view-element_name="User"
                            target="_blank" href="//www.zhihu.com/people/${item.author.url_token}">${item.author.name}
                         </a>
+                        ${authorTagHtml}
                     </span>${replyHtml}
-                    <span class="CommentItemV2-time">${address_text}${getDate(item.created_time)}${hot}${pin}</span>
-                </div>
-                <div class="CommentItemV2-metaSibling">
                     <div class="CommentRichText CommentItemV2-content">
                         <div class="RichText ztext">${content}</div>
                     </div>
                     <div class="CommentItemV2-footer">
+                        <span class="CommentItemV2-time">${address_text}${getDate(item.created_time)}${hot}${pin}</span>
                         <button type="button" class="Button CommentItemV2-likeBtn Button--plain"><span
                                 style="display: inline-flex; align-items: center;">&#8203;<svg
                                 class="Zi Zi--Like" fill="currentColor" viewBox="0 0 24 24" width="16"
@@ -1142,6 +1194,60 @@ function addCss() {
     .my-center {
         margin: 0 auto;
         text-align: center;
+    }
+    .author-tag {
+        position: relative;
+        padding: 0px 4px;
+        height: 16px;
+        line-height: 16px;
+        box-sizing: border-box;
+        font-size: 10px;
+        color: rgb(153, 153, 153);
+    }
+    .author-tag::before {
+        display: block;
+        content: " ";
+        position: absolute;
+        inset: -50%;
+        pointer-events: none;
+        transform: scale(0.5, 0.5);
+        border: 1px solid rgb(211, 211, 211);
+        border-radius: 4px;
+    }
+    .comment-item-wrap {
+        box-sizing: border-box;
+        margin: 0px;
+        min-width: 0px;
+        display: flex;
+        padding: 10px 0px 6px;
+    }
+    .CommentItemV2-meta {
+        box-sizing: border-box;
+        margin: 0px;
+        min-width: 0px;
+        flex: 0 0 auto;
+    }
+    .CommentItemV2-metaSibling {
+        box-sizing: border-box;
+        margin: 0px 0px 0px 10px;
+        min-width: 0px;
+        flex: 1 1 auto;    
+    }
+    img.UserLink-avatar {
+        box-sizing: border-box;
+        margin: 0px;
+        min-width: 0px;
+        max-width: 100%;
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        filter: brightness(0.95);
+        display: block;
+        position: relative;
+        background-color: rgb(246, 246, 246);
+        flex: 0 0 auto;
+        text-indent: -9999px;
+        overflow: hidden;
     }
 </style>
 <style type="text/css">
