@@ -7,9 +7,10 @@
 // @match       https://www.zhihu.com/zvideo/*
 // @match       https://zhuanlan.zhihu.com/p/*
 // @grant       none
-// @version     1.5.1
+// @version     1.5.2
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2023.05.04  v1.5.2 评论中的链接去除中间页直接打开；评论中的图片可预览、图片表情可显示。
 // @note        2023.05.02  v1.5.1 调整回复样式；自动隐藏回复收起按钮。
 // @note        2023.05.01  v1.5.0 评论使用新接口；加载子回复。修复点击图片导致评论按钮消失的问题。
 // @note        2023.04.30  v1.4.3 修复加载状态条不显示的问题。
@@ -300,7 +301,7 @@ function skipOpenApp() {
                 let tmpHtml = `<div>
             <div class="ContentItem-time">
                 <a target="_blank" href="${url}">
-                    <span>发布于 ${cTime}</span>${mHtml}
+                    <span class="my-created-time">发布于 ${cTime}</span>${mHtml}
                 </a>
             </div>
             </div>`;
@@ -462,7 +463,7 @@ function genAnswerItemHtml(data) {
             <div>
             <div class="ContentItem-time">
                 <a target="_blank" href="//www.zhihu.com/question/${questionNumber}/answer/${data.id}">
-                    <span>发布于 ${formatDate(data.created_time, 'yyyy-MM-dd')}</span>${upTimeHtml}
+                    <span class="my-created-time">发布于 ${formatDate(data.created_time, 'yyyy-MM-dd')}</span>${upTimeHtml}
                 </a>
             </div>
             </div>
@@ -489,22 +490,11 @@ function genAnswerItemHtml(data) {
                     </span>
                     </button>
                 </span>
-                <button type="button"
-                        class="Button ContentItem-action Button--plain Button--withIcon Button--withLabel"><span
-                        style="display: inline-flex; align-items: center;">&#8203;<svg class="Zi Zi--Comment Button-zi"
-                                                                                       fill="currentColor"
-                                                                                       viewBox="0 0 24 24" width="1.2em"
-                                                                                       height="1.2em"><path
-                        d="M10.241 19.313a.97.97 0 0 0-.77.2 7.908 7.908 0 0 1-3.772 1.482.409.409 0 0 1-.38-.637 5.825 5.825 0 0 0 1.11-2.237.605.605 0 0 0-.227-.59A7.935 7.935 0 0 1 3 11.25C3 6.7 7.03 3 12 3s9 3.7 9 8.25-4.373 9.108-10.759 8.063z"
-                        fill-rule="evenodd"></path></svg></span>评论 ${formatNumber(data.comment_count)}
+                <button type="button" class="Button ContentItem-action Button--plain Button--withIcon Button--withLabel">
+                    <span style="display: inline-flex; align-items: center;">&#8203;
+                        <svg width="1.2em" height="1.2em" viewBox="0 0 24 24" class="Zi Zi--Comment Button-zi t2ntD6J1DemdOdvh5FB4" fill="currentColor"><path fill-rule="evenodd" d="M12 2.75a9.25 9.25 0 1 0 4.737 17.197l2.643.817a1 1 0 0 0 1.25-1.25l-.8-2.588A9.25 9.25 0 0 0 12 2.75Z" clip-rule="evenodd"></path></svg>
+                    </span>评论 ${formatNumber(data.comment_count)}
                 </button>
-                <button type="button" class="Button ContentItem-action Button--plain Button--withIcon Button--iconOnly">
-                    <span style="display: inline-flex; align-items: center;">&#8203;<svg class="Zi Zi--Star Button-zi"
-                                                                                         fill="currentColor"
-                                                                                         viewBox="0 0 24 24"
-                                                                                         width="1.2em" height="1.2em"><path
-                            d="M5.515 19.64l.918-5.355-3.89-3.792c-.926-.902-.639-1.784.64-1.97L8.56 7.74l2.404-4.871c.572-1.16 1.5-1.16 2.072 0L15.44 7.74l5.377.782c1.28.186 1.566 1.068.64 1.97l-3.89 3.793.918 5.354c.219 1.274-.532 1.82-1.676 1.218L12 18.33l-4.808 2.528c-1.145.602-1.896.056-1.677-1.218z"
-                            fill-rule="evenodd"></path></svg></span></button>
             </div>
         </div>
     </div>
@@ -811,7 +801,7 @@ function bindClickComment(elListItem) {
         let metaComment = elContentItemActions.parentElement.previousElementSibling.parentElement.querySelector('meta[itemprop="commentCount"]');
         let commentCount = metaComment && metaComment.getAttribute('content') || '';
         elButton = document.createElement('span');
-        elButton.innerHTML = `<button type="button" class="Button ContentItem-action Button--plain Button--withIcon Button--withLabel"><span style="display: inline-flex; align-items: center;">&ZeroWidthSpace;<svg class="Zi Zi--Comment Button-zi" fill="currentColor" viewBox="0 0 24 24" width="1.2em" height="1.2em"><path d="M10.241 19.313a.97.97 0 0 0-.77.2 7.908 7.908 0 0 1-3.772 1.482.409.409 0 0 1-.38-.637 5.825 5.825 0 0 0 1.11-2.237.605.605 0 0 0-.227-.59A7.935 7.935 0 0 1 3 11.25C3 6.7 7.03 3 12 3s9 3.7 9 8.25-4.373 9.108-10.759 8.063z" fill-rule="evenodd"></path></svg></span> 评论 ${commentCount}</button>`;
+        elButton.innerHTML = `<button type="button" class="Button ContentItem-action Button--plain Button--withIcon Button--withLabel"><span style="display: inline-flex; align-items: center;">&ZeroWidthSpace;<svg width="1.2em" height="1.2em" viewBox="0 0 24 24" class="Zi Zi--Comment Button-zi t2ntD6J1DemdOdvh5FB4" fill="currentColor"><path fill-rule="evenodd" d="M12 2.75a9.25 9.25 0 1 0 4.737 17.197l2.643.817a1 1 0 0 0 1.25-1.25l-.8-2.588A9.25 9.25 0 0 0 12 2.75Z" clip-rule="evenodd"></path></svg></span>评论 ${commentCount}</button>`;
         elContentItemActions.appendChild(elButton);
     }
 
@@ -975,15 +965,35 @@ function genCommentItemHtml(item, liClass) {
     let pin = author_top ? `<span>${dot}置顶</span>` : '';
     let content = item.content.replace(/\[.{1,8}?\]/g, getEmojiImg)
         .replace(/<a([^<>]+?>)/g, function (match, p1) {
+            let res = '';
             if (match.indexOf('href') > -1) { // open in new tab
                 if (p1.indexOf('target=') === -1) {
-                    return '<a target="_blank" '+ p1;
+                    res = '<a target="_blank" '+ p1;
                 } else {
-                    return match.replace(/target=['"][^'"]*['"]/, 'target="_blank"');
+                    res = match.replace(/target=['"][^'"]*['"]/, 'target="_blank"');
                 }
             } else {
-                return match;
+                res = match;
             }
+            return res.replace(/href=['"]https?:\/\/link.zhihu.com\/\?target=([^'"]+)['"]/, function (_, p1) {
+                return 'href="'+decodeURIComponent(p1)+'"'
+            });
+        })
+        .replace(/<a.+?class="comment_sticker".+?>(.+?)<\/a>/, function (match, p1) {
+            let m = match.match(/href="(https?:\/\/[^'"]+\.[a-zA-Z]+)"/);
+            if (m) {
+                let url = m[1].replace(/_[a-z]+\./, '_xld\.');
+                return `<div class="comment_sticker"><img src="${url}" alt="${p1}" /></div>`;
+            }
+            return match;
+        })
+        .replace(/<a.+?class="comment_img".+?>\s*查看图片\s*<\/a>/, function (match) {
+            let m = match.match(/href="(https?:\/\/[^'"]+\.[a-zA-Z]+)"/);
+            if (m) {
+                let url = m[1].replace(/_[a-z]+\./, '_xld\.');
+                return `<div class="comment_img"><a target="_blank" href="${m[1]}"><img src="${url}" alt="查看图片" /></a></div>`;
+            }
+            return match;
         });
     var html = `<li class="NestComment--${liClass}">
         <div class="CommentItemV2">
@@ -1189,7 +1199,11 @@ function addCss() {
         z-index: 2;
     }
     .my-updated-time {
+        font-size: 13px;
         margin-left: 10px;
+    }
+    .my-created-time {
+        font-size: 13px;
     }
     .my-center {
         margin: 0 auto;
@@ -1248,6 +1262,44 @@ function addCss() {
         flex: 0 0 auto;
         text-indent: -9999px;
         overflow: hidden;
+    }
+    .comment_sticker {
+        box-sizing: border-box;
+        margin: 12px 0px 0px;
+        min-width: 0px;
+        background-color: rgb(246, 246, 246);
+        position: relative;
+        border-radius: 8px;
+        width: 120px;
+        height: 120px;
+    }
+    .comment_sticker img {
+        width: 100%;
+        height: 100%;
+        border-radius: 8px;
+        object-fit: cover;
+        cursor: zoom-in;
+        object-position: unset;
+    }
+    .comment_img {
+        box-sizing: border-box;
+        margin: 12px 0px 0px;
+        min-width: 0px;
+        background-color: rgb(246, 246, 246);
+        position: relative;
+        border-radius: 8px;
+        max-width: 120px;
+        max-height: 200px;
+    }
+    .comment_img img {
+        width: 100%;
+        height: 100%;
+        border-radius: 8px;
+        object-fit: cover;
+        cursor: zoom-in;
+        object-position: center top;
+        max-width: 120px;
+        max-height: 200px;
     }
 </style>
 <style type="text/css">
