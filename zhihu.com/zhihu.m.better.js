@@ -7,9 +7,10 @@
 // @match       https://www.zhihu.com/zvideo/*
 // @match       https://zhuanlan.zhihu.com/p/*
 // @grant       none
-// @version     1.5.3
+// @version     1.6.0
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2024.01.01  v1.6.0 显示剩余评论数量
 // @note        2023.05.27  v1.5.3 修复评论接口验证问题
 // @note        2023.05.04  v1.5.2 评论中的链接去除中间页直接打开；评论中的图片可预览、图片表情可显示。
 // @note        2023.05.02  v1.5.1 调整回复样式；自动隐藏回复收起按钮。
@@ -1510,6 +1511,8 @@ function processChildComment(elButton) {
         skipIds = elButton.dataset.skipIds.toString().split(','),
         offset = elButton.dataset.offset || '',
         loading = elButton.dataset.loading || '',
+        childCommentCount = elButton.dataset.childCommentCount || '',
+        remainCount = elButton.dataset.remainCount || '',
         end = 0,
         loadingTimer;
 
@@ -1523,6 +1526,9 @@ function processChildComment(elButton) {
         json.data.forEach(function (v) {
             if (skipIds.indexOf(v.id) === -1) {
                 html += genCommentItemHtml(v, 'child');
+                if (remainCount) {
+                    remainCount -= 1;
+                }
             }
         });
 
@@ -1539,6 +1545,10 @@ function processChildComment(elButton) {
         elLoading.classList.add('hide');
         if (!end) {
             elButton.classList.remove('hide');
+            if (childCommentCount) {
+                elButton.dataset.remainCount = remainCount;
+                elButton.innerText = `查看回复 ${remainCount} / ${childCommentCount}`;
+            }
         }
     })
 }
@@ -1680,8 +1690,9 @@ function genCommentHtml(dataList) {
                 tmp += genCommentItemHtml(v, 'child');
             });
             if (data.child_comment_count > data.child_comments.length) {
+                let remain_count = data.child_comment_count - data.child_comments.length;
                 tmp += '<div class="child-comment-wrap"></div><div class="my-center"><span class="hide">加载中...</span>'
-                tmp += `<button data-root-id="${data.id}" data-skip-ids="${skipIds.join(',')}" type="button" class="btn-child-comment Button Button--secondary Button--grey css-1p04wnp">查看全部 ${data.child_comment_count} 条回复<span style="display: inline-flex; align-items: center;">&ZeroWidthSpace;<svg width="24" height="24" viewBox="0 0 24 24" class="ZDI ZDI--ArrowRightSmall24" fill="currentColor"><path fill-rule="evenodd" d="m13.248 12-4.025 3.78a.684.684 0 0 0 0 1.01.796.796 0 0 0 1.075 0l4.42-4.15a.867.867 0 0 0 0-1.28l-4.42-4.15a.796.796 0 0 0-1.075 0 .684.684 0 0 0 0 1.01L13.248 12Z" clip-rule="evenodd"></path></svg></span></button>`
+                tmp += `<button data-root-id="${data.id}" data-skip-ids="${skipIds.join(',')}" data-child-comment-count="${data.child_comment_count}" data-remain-count="${remain_count}" type="button" class="btn-child-comment Button Button--secondary Button--grey css-1p04wnp">查看回复 ${remain_count} / ${data.child_comment_count}<span style="display: inline-flex; align-items: center;">&ZeroWidthSpace;<svg width="24" height="24" viewBox="0 0 24 24" class="ZDI ZDI--ArrowRightSmall24" fill="currentColor"><path fill-rule="evenodd" d="m13.248 12-4.025 3.78a.684.684 0 0 0 0 1.01.796.796 0 0 0 1.075 0l4.42-4.15a.867.867 0 0 0 0-1.28l-4.42-4.15a.796.796 0 0 0-1.075 0 .684.684 0 0 0 0 1.01L13.248 12Z" clip-rule="evenodd"></path></svg></span></button>`
                 tmp += '</div>'
             }
         }
