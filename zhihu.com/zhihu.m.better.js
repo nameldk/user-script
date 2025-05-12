@@ -7,9 +7,10 @@
 // @match       https://www.zhihu.com/zvideo/*
 // @match       https://zhuanlan.zhihu.com/p/*
 // @grant       none
-// @version     1.6.0
+// @version     1.6.1
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2025.05.12  v1.6.1 修复获取答案接口验证问题
 // @note        2024.01.01  v1.6.0 显示剩余评论数量
 // @note        2023.05.27  v1.5.3 修复评论接口验证问题
 // @note        2023.05.04  v1.5.2 评论中的链接去除中间页直接打开；评论中的图片可预览、图片表情可显示。
@@ -1147,7 +1148,8 @@ function processContent(content) {
 }
 
 function loadContent(url) {
-    let myHeaders = new Headers();
+    // let myHeaders = new Headers();
+    let myHeaders = new Headers(genCommentHeader(url));
     const myInit = {
         method: 'GET',
         headers: myHeaders,
