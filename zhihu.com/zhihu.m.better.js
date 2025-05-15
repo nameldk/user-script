@@ -7,9 +7,10 @@
 // @match       https://www.zhihu.com/zvideo/*
 // @match       https://zhuanlan.zhihu.com/p/*
 // @grant       none
-// @version     1.6.1
+// @version     1.6.2
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2025.05.15  v1.6.2 去掉弹窗
 // @note        2025.05.12  v1.6.1 修复获取答案接口验证问题
 // @note        2024.01.01  v1.6.0 显示剩余评论数量
 // @note        2023.05.27  v1.5.3 修复评论接口验证问题
@@ -174,6 +175,22 @@ function observerAddNodes(targetNode, cb) {
             if (mutation.addedNodes.length) {
                 log('got_addNode', mutation.addedNodes.length, mutation.addedNodes);
                 forEachArray(mutation.addedNodes, el => cb(el));
+            }
+        }
+    };
+
+    const observer = new MutationObserver(callback);
+    observer.observe(targetNode, config);
+}
+
+function observerNodeAttributes(targetNode, cb) {
+    if (!targetNode || !cb)
+        return;
+    const config = {attributes: true};
+    const callback = function (mutationsList) {
+        for (const mutation of mutationsList) {
+            if (mutation.type === 'attributes') {
+                cb(mutation)
             }
         }
     };
@@ -977,7 +994,8 @@ function addCommonStyle() {
     let style = `<style>
 .CommentsForOia, #div-gpt-ad-bannerAd,div.Card.AnswersNavWrapper div.ModalWrap, .MobileModal-backdrop,
         .MobileModal--plain.ConfirmModal,.AdBelowMoreAnswers,div.Card.HotQuestions, button.OpenInAppButton.OpenInApp,
-        .DownloadGuide-inner, .DownloadGuide, div.OpenInAppButton, div.Card.RelatedReadings {
+        .DownloadGuide-inner, .DownloadGuide, div.OpenInAppButton, div.Card.RelatedReadings, button.ContentItem-rightButton, 
+        div.MobileModal-wrapper {
         display: none;
     }
 .CommentItemV2 {
@@ -2225,6 +2243,14 @@ function processCommon() {
     if (elA) {
         stopPropagation(elA)
     }
+    observerNodeAttributes(document.body, (mutation) => {
+        if (mutation.target.style && mutation.target.style.overflow === 'hidden') {
+            document.body.style.overflow = 'auto'
+            setTimeout(() => {
+                removeBySelector('.MobileModal-wrapper')
+            }, 10)
+        }
+    })
 }
 
 
