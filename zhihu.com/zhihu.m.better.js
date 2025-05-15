@@ -7,9 +7,10 @@
 // @match       https://www.zhihu.com/zvideo/*
 // @match       https://zhuanlan.zhihu.com/p/*
 // @grant       none
-// @version     1.6.2
+// @version     1.6.3
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2025.05.15  v1.6.3 修复问题页而gif无法播放,加载评论时动画失效
 // @note        2025.05.15  v1.6.2 去掉弹窗
 // @note        2025.05.12  v1.6.1 修复获取答案接口验证问题
 // @note        2024.01.01  v1.6.0 显示剩余评论数量
@@ -995,7 +996,7 @@ function addCommonStyle() {
 .CommentsForOia, #div-gpt-ad-bannerAd,div.Card.AnswersNavWrapper div.ModalWrap, .MobileModal-backdrop,
         .MobileModal--plain.ConfirmModal,.AdBelowMoreAnswers,div.Card.HotQuestions, button.OpenInAppButton.OpenInApp,
         .DownloadGuide-inner, .DownloadGuide, div.OpenInAppButton, div.Card.RelatedReadings, button.ContentItem-rightButton, 
-        div.MobileModal-wrapper {
+        div.MobileModal-wrapper,.MBannerAd {
         display: none;
     }
 .CommentItemV2 {
@@ -1826,17 +1827,37 @@ function genCommentItemHtml(item, liClass) {
 }
 
 function genCommentLoding() {
-    var html = `<div>
-    <div class="PlaceHolder CommentItemV2">
-        <div class="PlaceHolder-inner">
-            <div class="PlaceHolder-bg"></div>
-            <svg width="656" height="44" viewBox="0 0 656 44" class="PlaceHolder-mask">
-                <path d="M0 0h656v44H0V0zm0 0h480v12H0V0zm0 32h238v12H0V32z" fill="currentColor"
-                      fill-rule="evenodd"></path>
-            </svg>
-        </div>
-    </div>
-</div>`;
+    var html = `
+<style>
+.css-1t6pvna {
+    box-sizing: border-box;
+    padding: 10px 20px 14px;
+}
+.css-w2vj5n {
+    position: relative;
+    overflow: hidden;
+    background: rgb(248, 248, 250);
+    color: rgb(255, 255, 255);
+}
+.css-1mkvfwo {
+    position: absolute;
+    width: 200%;
+    height: 100%;
+    background: linear-gradient(to right, rgb(248, 248, 250) 0%, rgb(235, 236, 237) 20%, rgb(248, 248, 250) 40%, rgb(248, 248, 250) 100%);
+    animation: 1s linear 1ms infinite normal forwards running animation-1pjzrtc;
+}
+.css-doegi0 {
+    position: relative;
+    min-width: 100%;
+    vertical-align: top;
+    box-sizing: border-box;
+}
+@keyframes animation-1pjzrtc {
+  0% { transform: translateX(-56%); }
+  100% { transform: translateX(56%); }
+}
+</style>
+<div class="css-1t6pvna"><div class="css-w2vj5n"><div class="css-1mkvfwo"></div><svg width="656" height="44" viewBox="0 0 656 44" class="css-doegi0"><path d="M0 0h656v44H0V0zm0 0h480v12H0V0zm0 32h238v12H0V32z" fill="currentColor" fill-rule="evenodd"></path></svg></div></div>`;
     var el = document.createElement('div');
     el.innerHTML = html;
     return el;
@@ -2225,7 +2246,7 @@ function processDetailOrList() {
                     }
                 }
                 processLinkCard(ele.querySelector('.RichContent'));
-                stopElePropagation(ele1, 'figure img,a')
+                stopElePropagation(ele1, 'a') // affect gifplayer: figure img, eg:https://www.zhihu.com/question/443350396
             });
         }
         bindLoadData();
