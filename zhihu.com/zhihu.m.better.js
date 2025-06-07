@@ -7,9 +7,10 @@
 // @match       https://www.zhihu.com/zvideo/*
 // @match       https://zhuanlan.zhihu.com/p/*
 // @grant       none
-// @version     1.6.3
+// @version     1.6.4
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2025.06.07  v1.6.4 修复问题答案页面评论消失。列表页gif,图片点击处理。
 // @note        2025.05.15  v1.6.3 修复问题页而gif无法播放,加载评论时动画失效
 // @note        2025.05.15  v1.6.2 去掉弹窗
 // @note        2025.05.12  v1.6.1 修复获取答案接口验证问题
@@ -84,6 +85,15 @@ function removeBySelector(s) {
 
 function hideBySelector(s) {
     forEachBySelector(s, ele => ele.style.display = "none");
+}
+
+function hideAllNextSiblings(el) {
+    if (!el) return
+    let nextSb = el.nextElementSibling
+    while (nextSb) {
+        nextSb.style.display = 'none'
+        nextSb = nextSb.nextElementSibling
+    }
 }
 
 function hideByAddCss(s) {
@@ -996,7 +1006,7 @@ function addCommonStyle() {
 .CommentsForOia, #div-gpt-ad-bannerAd,div.Card.AnswersNavWrapper div.ModalWrap, .MobileModal-backdrop,
         .MobileModal--plain.ConfirmModal,.AdBelowMoreAnswers,div.Card.HotQuestions, button.OpenInAppButton.OpenInApp,
         .DownloadGuide-inner, .DownloadGuide, div.OpenInAppButton, div.Card.RelatedReadings, button.ContentItem-rightButton, 
-        div.MobileModal-wrapper,.MBannerAd {
+        div.MobileModal-wrapper,.MBannerAd, .oia-action-bar {
         display: none;
     }
 .CommentItemV2 {
@@ -1080,25 +1090,49 @@ function skipOpenApp() {
             }
 
             setTimeout(function () {
-                if (!elRichContent.classList.contains('is-collapsed')) {
+                if (!elRichContent.classList.contains('is-collapsed') && !inDetailPage) {
                     return;
                 }
+                if (inDetailPage) {
+                    // fix .ContentItem-actions missing
+
+                    hideAllNextSiblings(elRichContent)
+
+                    let el_upvoteCount = ele.querySelector('meta[itemprop="upvoteCount"]');
+                    let el_commentCount = ele.querySelector('meta[itemprop="commentCount"]');
+                    let commentBar = genCommentBar({
+                        "voteup_count": el_upvoteCount && el_upvoteCount.getAttribute('content') || 0,
+                        "comment_count": el_commentCount && el_commentCount.getAttribute('content') || 0,
+                    })
+                    elRichContent.insertAdjacentHTML('afterend', commentBar);
+                    bindClickComment(ele)
+                }
+
                 log('process:is-collapsed');
                 ele.classList.add('my-fold');
                 elRichContentInner.insertAdjacentHTML('afterend', `<span class="my-more-btn down-img"></span><span class="my-less-btn up-img"></span>`);
                 elRichContent.classList.remove('is-collapsed');
+                elRichContent.classList.add('my-original');
                 elRichContentInner.setAttribute("style", "");
                 processFold(elRichContent);
             }, 1000);
 
-            forEachArray(elRichContentInner.querySelectorAll('.GifPlayer'), el => {
-                el.addEventListener('click', () => {
-                    let elImg = el.querySelector('img'),
-                        elIcon = el.querySelector('svg'),
-                        url = elImg.getAttribute('src').toString().replace('.jpg', '.webp');
-                    if (elIcon) {
-                        elImg.setAttribute('src', url);
-                        elIcon.remove();
+            // process gif & img
+            forEachArray(elRichContentInner.querySelectorAll('figure img'), el => {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation()
+                    if (el.parentElement.classList.contains('GifPlayer')) {
+                        let elImg = el.parentElement.querySelector('img'),
+                            elIcon = el.parentElement.querySelector('svg'),
+                            url = elImg.getAttribute('src').toString().replace('.jpg', '.webp');
+                        if (elIcon) {
+                            elImg.setAttribute('src', url);
+                            elIcon.remove();
+                        }
+                    } else {
+                        if (el.src) {
+                            window.open(el.src, "_blank")
+                        }
                     }
                 });
             });
@@ -1125,6 +1159,12 @@ function skipOpenApp() {
     });
 
 
+    if (inDetailPage) {
+        let elCard = document.querySelector('div.Card.AnswerCard');
+        if (elCard) {
+            hideAllNextSiblings(elCard)
+        }
+    }
 }
 
 function removeAds() {
@@ -1176,6 +1216,35 @@ function loadContent(url) {
 
     return fetch(url, myInit).then(response => response.json());
 }
+
+function genCommentBar(data) {
+    return `<div class="ContentItem-actions">
+                <span>
+                    <button aria-label="赞同 ${formatNumber(data.voteup_count)}" type="button" class="Button VoteButton VoteButton--up">
+                        <span style="display: inline-flex; align-items: center;">&#8203;
+                            <svg class="Zi Zi--TriangleUp VoteButton-TriangleUp" fill="currentColor" viewBox="0 0 24 24"
+                                 width="10" height="10">
+                            <path d="M2 18.242c0-.326.088-.532.237-.896l7.98-13.203C10.572 3.57 11.086 3 12 3c.915 0 1.429.571 1.784 1.143l7.98 13.203c.15.364.236.57.236.896 0 1.386-.875 1.9-1.955 1.9H3.955c-1.08 0-1.955-.517-1.955-1.9z"
+                                  fill-rule="evenodd"></path></svg>
+                        </span>赞同 ${formatNumber(data.voteup_count)}
+                    </button>
+                    <button aria-label="反对" type="button"
+                            class="Button VoteButton VoteButton--down VoteButton--mobileDown">
+                        <span style="display: inline-flex; align-items: center;">&#8203;
+                        <svg class="Zi Zi--TriangleDown" fill="currentColor" viewBox="0 0 24 24" width="10" height="10"><path
+                                d="M20.044 3H3.956C2.876 3 2 3.517 2 4.9c0 .326.087.533.236.896L10.216 19c.355.571.87 1.143 1.784 1.143s1.429-.572 1.784-1.143l7.98-13.204c.149-.363.236-.57.236-.896 0-1.386-.876-1.9-1.956-1.9z"
+                                fill-rule="evenodd"></path></svg>
+                    </span>
+                    </button>
+                </span>
+                <button type="button" class="Button ContentItem-action Button--plain Button--withIcon Button--withLabel">
+                    <span style="display: inline-flex; align-items: center;">&#8203;
+                        <svg width="1.2em" height="1.2em" viewBox="0 0 24 24" class="Zi Zi--Comment Button-zi t2ntD6J1DemdOdvh5FB4" fill="currentColor"><path fill-rule="evenodd" d="M12 2.75a9.25 9.25 0 1 0 4.737 17.197l2.643.817a1 1 0 0 0 1.25-1.25l-.8-2.588A9.25 9.25 0 0 0 12 2.75Z" clip-rule="evenodd"></path></svg>
+                    </span>评论 ${formatNumber(data.comment_count)}
+                </button>
+            </div>`
+}
+
 
 function genAnswerItemHtml(data) {
     var content = processContent(data.content);
@@ -1240,31 +1309,8 @@ function genAnswerItemHtml(data) {
             <span class="my-more-btn down-img"></span>
             <span class="my-less-btn up-img"></span>
 
-            <div class="ContentItem-actions">
-                <span>
-                    <button aria-label="赞同 ${formatNumber(data.voteup_count)}" type="button" class="Button VoteButton VoteButton--up">
-                        <span style="display: inline-flex; align-items: center;">&#8203;
-                            <svg class="Zi Zi--TriangleUp VoteButton-TriangleUp" fill="currentColor" viewBox="0 0 24 24"
-                                 width="10" height="10">
-                            <path d="M2 18.242c0-.326.088-.532.237-.896l7.98-13.203C10.572 3.57 11.086 3 12 3c.915 0 1.429.571 1.784 1.143l7.98 13.203c.15.364.236.57.236.896 0 1.386-.875 1.9-1.955 1.9H3.955c-1.08 0-1.955-.517-1.955-1.9z"
-                                  fill-rule="evenodd"></path></svg>
-                        </span>赞同 ${formatNumber(data.voteup_count)}
-                    </button>
-                    <button aria-label="反对" type="button"
-                            class="Button VoteButton VoteButton--down VoteButton--mobileDown">
-                        <span style="display: inline-flex; align-items: center;">&#8203;
-                        <svg class="Zi Zi--TriangleDown" fill="currentColor" viewBox="0 0 24 24" width="10" height="10"><path
-                                d="M20.044 3H3.956C2.876 3 2 3.517 2 4.9c0 .326.087.533.236.896L10.216 19c.355.571.87 1.143 1.784 1.143s1.429-.572 1.784-1.143l7.98-13.204c.149-.363.236-.57.236-.896 0-1.386-.876-1.9-1.956-1.9z"
-                                fill-rule="evenodd"></path></svg>
-                    </span>
-                    </button>
-                </span>
-                <button type="button" class="Button ContentItem-action Button--plain Button--withIcon Button--withLabel">
-                    <span style="display: inline-flex; align-items: center;">&#8203;
-                        <svg width="1.2em" height="1.2em" viewBox="0 0 24 24" class="Zi Zi--Comment Button-zi t2ntD6J1DemdOdvh5FB4" fill="currentColor"><path fill-rule="evenodd" d="M12 2.75a9.25 9.25 0 1 0 4.737 17.197l2.643.817a1 1 0 0 0 1.25-1.25l-.8-2.588A9.25 9.25 0 0 0 12 2.75Z" clip-rule="evenodd"></path></svg>
-                    </span>评论 ${formatNumber(data.comment_count)}
-                </button>
-            </div>
+            ${genCommentBar(data)}
+            
         </div>
     </div>
 </div>`;
@@ -1960,6 +2006,10 @@ function addCss() {
     }
     .my-unfold .my-less-btn {
         display: block;
+    }
+    
+    .my-unfold .my-original .ContentItem-time {
+        margin-bottom: 30px;
     }
     
     .up-img {
