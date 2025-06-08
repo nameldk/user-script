@@ -7,9 +7,10 @@
 // @match       https://www.zhihu.com/zvideo/*
 // @match       https://zhuanlan.zhihu.com/p/*
 // @grant       none
-// @version     1.6.4
+// @version     1.6.5
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2025.06.08  v1.6.5 问题答案页面添加查看全部问题链接
 // @note        2025.06.07  v1.6.4 修复问题答案页面评论消失。列表页gif,图片点击处理。
 // @note        2025.05.15  v1.6.3 修复问题页而gif无法播放,加载评论时动画失效
 // @note        2025.05.15  v1.6.2 去掉弹窗
@@ -1137,6 +1138,19 @@ function skipOpenApp() {
                 });
             });
 
+            // avatar click
+            forEachArray(ele.querySelectorAll('img.Avatar'), el => {
+                el.addEventListener('click', (e) => {
+                    let elUrl = el.parentElement.querySelector('meta[itemprop="url"]')
+                    if (elUrl) {
+                        let url = elUrl.getAttribute('content')
+                        if (url) {
+                            window.open(url, '_blank')
+                        }
+                    }
+                });
+            });
+
             let eleVoteButton = ele.querySelector('.VoteButton--up');
             if (eleVoteButton) {
                 eleVoteButton.style = null;
@@ -1481,13 +1495,11 @@ function bindLoadData() {
     log('run:bindLoadData');
     var el;
     if (inDetailPage) {
-        el = document.querySelector('.Card.ViewAll');
-        if (!el) {
-            console.warn('bindLoadData failed');
+        let elRoot = document.getElementById('root')
+        if (!elRoot) {
             return;
         }
-        el.style.textAlign = "center";
-        el.innerHTML = '<a class="QuestionMainAction ViewAll-QuestionMainAction" href="'+location.href.replace(/\/answer.+/,'')+'">查看所有回答<a>';
+        elRoot.insertAdjacentHTML('afterend', '<div style="text-align: center;"><a class="QuestionMainAction ViewAll-QuestionMainAction" href="'+location.href.replace(/\/answer.+/,'')+'">查看所有回答<a></div>');
         return;
     }
     document.querySelectorAll('.Question-main .Card').forEach(function (elCard) {
