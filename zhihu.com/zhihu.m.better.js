@@ -7,9 +7,10 @@
 // @match       https://www.zhihu.com/zvideo/*
 // @match       https://zhuanlan.zhihu.com/p/*
 // @grant       none
-// @version     1.6.5
+// @version     1.6.6
 // @author      nameldk
 // @description 使手机网页版可以加载更多答案
+// @note        2026.04.22  v1.6.6 现在需要登录后才能加载更多回答，所以跳转到登录页；问题页默认也没有了评论按钮，补充上。
 // @note        2025.06.08  v1.6.5 问题答案页面添加查看全部问题链接
 // @note        2025.06.07  v1.6.4 修复问题答案页面评论消失。列表页gif,图片点击处理。
 // @note        2025.05.15  v1.6.3 修复问题页而gif无法播放,加载评论时动画失效
@@ -1007,7 +1008,7 @@ function addCommonStyle() {
 .CommentsForOia, #div-gpt-ad-bannerAd,div.Card.AnswersNavWrapper div.ModalWrap, .MobileModal-backdrop,
         .MobileModal--plain.ConfirmModal,.AdBelowMoreAnswers,div.Card.HotQuestions, button.OpenInAppButton.OpenInApp,
         .DownloadGuide-inner, .DownloadGuide, div.OpenInAppButton, div.Card.RelatedReadings, button.ContentItem-rightButton, 
-        div.MobileModal-wrapper,.MBannerAd, .oia-action-bar {
+        div.MobileModal-wrapper,.MBannerAd, .oia-action-bar, .zhihuAdvert-MBanner {
         display: none;
     }
 .CommentItemV2 {
@@ -1094,7 +1095,7 @@ function skipOpenApp() {
                 if (!elRichContent.classList.contains('is-collapsed') && !inDetailPage) {
                     return;
                 }
-                if (inDetailPage) {
+                if (1 || inDetailPage) {
                     // fix .ContentItem-actions missing
 
                     hideAllNextSiblings(elRichContent)
@@ -1411,6 +1412,12 @@ function loadAnswer() {
         log('get data:', answer_next_url);
         if (data.paging.is_end) {
             is_end = 1;
+        }
+        if (data.paging.need_force_login === true) {
+            if (confirm("需要登录后才能加载")) {
+                window.location.href = "https://www.zhihu.com/signin"
+                return;
+            }
         }
         answer_next_url = data.paging.next;
         let elListWrap = getListWrap();
