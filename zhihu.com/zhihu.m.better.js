@@ -1415,7 +1415,7 @@ function loadAnswer() {
         }
         if (data.paging.need_force_login === true) {
             if (confirm("需要登录后才能加载")) {
-                window.location.href = "https://www.zhihu.com/signin"
+                window.location.href = "https://www.zhihu.com/signin?next="+location.href
                 return;
             }
         }
